@@ -1,0 +1,65 @@
+[
+  {
+    "id": "owasp-top-10",
+    "title": "OWASP Top 10: 2025",
+    "url": "https://top10.owasp.org/2025/",
+    "category": "Standard",
+    "description": "The OWASP Top 10:2025 is the latest standard awareness document for developers and web application security, representing the consensus on critical application security risks."
+  },
+  {
+    "id": "sql-injection-prevention",
+    "title": "OWASP SQL Injection Prevention Cheat Sheet",
+    "url": "https://cheatsheetseries.owasp.org/cheatsheets/SQL_Injection_Prevention_Cheat_Sheet.html",
+    "category": "Cheat Sheet",
+    "description": "Guidance on defending applications against SQL Injection vulnerabilities through parameterized queries, object relational mapping, and input validation."
+  },
+  {
+    "id": "os-command-injection",
+    "title": "OWASP OS Command Injection Defense Cheat Sheet",
+    "url": "https://cheatsheetseries.owasp.org/cheatsheets/OS_Command_Injection_Defense_Cheat_Sheet.html",
+    "category": "Cheat Sheet",
+    "description": "Techniques for preventing OS command injection vulnerabilities by avoiding system shells, utilizing argument lists, and restricting parameter values."
+  },
+  {
+    "id": "xss-prevention",
+    "title": "OWASP Cross Site Scripting Prevention Cheat Sheet",
+    "url": "https://cheatsheetseries.owasp.org/cheatsheets/Cross_Site_Scripting_Prevention_Cheat_Sheet.html",
+    "category": "Cheat Sheet",
+    "description": "Strategies for eliminating Cross-Site Scripting (XSS) through contextual output encoding, safe sinks, and Content Security Policy (CSP)."
+  },
+  {
+    "id": "deserialization-prevention",
+    "title": "OWASP Deserialization Cheat Sheet",
+    "url": "https://cheatsheetseries.owasp.org/cheatsheets/Deserialization_Cheat_Sheet.html",
+    "category": "Cheat Sheet",
+    "description": "Best practices for avoiding insecure deserialization in Java, Python, and other environments using safe formats and object filtering."
+  },
+  {
+    "id": "cryptographic-storage",
+    "title": "OWASP Cryptographic Storage Cheat Sheet",
+    "url": "https://cheatsheetseries.owasp.org/cheatsheets/Cryptographic_Storage_Cheat_Sheet.html",
+    "category": "Cheat Sheet",
+    "description": "Architectural guidelines for strong encryption algorithms, key management, avoiding broken algorithms like MD5/SHA-1, and secure hashing."
+  },
+  {
+    "id": "authentication",
+    "title": "OWASP Authentication Cheat Sheet",
+    "url": "https://cheatsheetseries.owasp.org/cheatsheets/Authentication_Cheat_Sheet.html",
+    "category": "Cheat Sheet",
+    "description": "Comprehensive guidance on authentication best practices including password storage with Argon2/bcrypt, hardcoded credential detection, MFA, brute-force protection, and secure session management."
+  },
+  {
+    "id": "input-validation",
+    "title": "OWASP Input Validation Cheat Sheet",
+    "url": "https://cheatsheetseries.owasp.org/cheatsheets/Input_Validation_Cheat_Sheet.html",
+    "category": "Cheat Sheet",
+    "description": "Strategies for robust server-side input validation including allowlist validation, SQL injection prevention, OS command injection prevention, path traversal, and encoding guidance."
+  },
+  {
+    "id": "secrets-management",
+    "title": "OWASP Secrets Management Cheat Sheet",
+    "url": "https://cheatsheetseries.owasp.org/cheatsheets/Secrets_Management_Cheat_Sheet.html",
+    "category": "Cheat Sheet",
+    "description": "Guidelines for securely managing credentials, API keys, tokens, and secrets — covering hardcoded secrets detection, secrets managers (Vault, AWS, Azure), rotation, log redaction, and Git hygiene."
+  }
+]

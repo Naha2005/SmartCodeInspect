@@ -1,0 +1,1732 @@
+[
+  {
+    "chunk_id": "api-security_0",
+    "document_id": "api-security",
+    "document_title": "OWASP API Security Best Practices Cheat Sheet",
+    "url": "https://owasp.org/www-project-api-security/",
+    "category": "Standard",
+    "section": "OWASP API Security Best Practices Cheat Sheet",
+    "retrieval_date": "2026-10-11",
+    "text": "# OWASP API Security Best Practices Cheat Sheet Source: https://owasp.org/www-project-api-security/ Retrieved: 2026-10-12 Author: OWASP API Security Project Team Topic: API Security & Hardening"
+  },
+  {
+    "chunk_id": "api-security_1",
+    "document_id": "api-security",
+    "document_title": "OWASP API Security Best Practices Cheat Sheet",
+    "url": "https://owasp.org/www-project-api-security/",
+    "category": "Standard",
+    "section": "Introduction",
+    "retrieval_date": "2026-10-11",
+    "text": "## Introduction Modern application architectures rely heavily on REST, GraphQL, and RPC APIs. APIs frequently expose underlying business objects, database schemas, and microservice communication channels, making them primary targets for attackers."
+  },
+  {
+    "chunk_id": "api-security_2",
+    "document_id": "api-security",
+    "document_title": "OWASP API Security Best Practices Cheat Sheet",
+    "url": "https://owasp.org/www-project-api-security/",
+    "category": "Standard",
+    "section": "Key API Vulnerabilities (OWASP API Top 10 Highlights)",
+    "retrieval_date": "2026-10-11",
+    "text": "## Key API Vulnerabilities (OWASP API Top 10 Highlights) 1. **Broken Object Level Authorization (BOLA / API1):** Endpoints that accept user IDs or entity keys without validating that the authenticated client has permission to access that specific object. 2. **Broken Authentication (API2):** Weak token handling, missing rate limiting on credential endpoints, or accepting unvalidated JWT signatures (`alg: \"none\"`). 3. **Broken Object Property Level Authorization (API3 / Mass Assignment):** Binding"
+  },
+  {
+    "chunk_id": "api-security_3",
+    "document_id": "api-security",
+    "document_title": "OWASP API Security Best Practices Cheat Sheet",
+    "url": "https://owasp.org/www-project-api-security/",
+    "category": "Standard",
+    "section": "Key API Vulnerabilities (OWASP API Top 10 Highlights)",
+    "retrieval_date": "2026-10-11",
+    "text": "(`alg: \"none\"`). 3. **Broken Object Property Level Authorization (API3 / Mass Assignment):** Binding client JSON payloads directly into database models without filtering allowed fields, allowing callers to overwrite properties such as `is_admin`, `verified`, or `account_balance`. 4. **Unrestricted Resource Consumption (API4):** Missing rate limiting or lack of maximum page size (`limit`/`offset`) controls, leading to API Denial of Service."
+  },
+  {
+    "chunk_id": "api-security_4",
+    "document_id": "api-security",
+    "document_title": "OWASP API Security Best Practices Cheat Sheet",
+    "url": "https://owasp.org/www-project-api-security/",
+    "category": "Standard",
+    "section": "Prevention and Defense Patterns",
+    "retrieval_date": "2026-10-11",
+    "text": "## Prevention and Defense Patterns ### 1. Strict Request Schema Validation & Explicit DTOs Never map raw request dictionaries directly to internal database entity classes. Use strictly typed Data Transfer Objects (DTOs) or Pydantic models with extra fields forbidden. ### Secure Python Pattern (FastAPI / Pydantic) from pydantic import BaseModel, Field, EmailStr class UserProfileUpdateRequest(BaseModel): # Only expose attributes users are authorized to update full_name: str = Field(..., max_length"
+  },
+  {
+    "chunk_id": "api-security_5",
+    "document_id": "api-security",
+    "document_title": "OWASP API Security Best Practices Cheat Sheet",
+    "url": "https://owasp.org/www-project-api-security/",
+    "category": "Standard",
+    "section": "Prevention and Defense Patterns",
+    "retrieval_date": "2026-10-11",
+    "text": "del): # Only expose attributes users are authorized to update full_name: str = Field(..., max_length=100) email: EmailStr class Config: extra = \"forbid\" # Reject unexpected or privileged keys like is_admin @app.put(\"/api/users/me\") def update_profile(data: UserProfileUpdateRequest, user: CurrentUser): user.full_name = data.full_name user.email = data.email db.session.commit() return {\"status\": \"updated\"} ### 2. Implement Tiered Rate Limiting Apply global and per-endpoint rate limits (especially"
+  },
+  {
+    "chunk_id": "api-security_6",
+    "document_id": "api-security",
+    "document_title": "OWASP API Security Best Practices Cheat Sheet",
+    "url": "https://owasp.org/www-project-api-security/",
+    "category": "Standard",
+    "section": "Prevention and Defense Patterns",
+    "retrieval_date": "2026-10-11",
+    "text": "dated\"} ### 2. Implement Tiered Rate Limiting Apply global and per-endpoint rate limits (especially on authentication and resource-intensive endpoints): - Return standard HTTP `429 Too Many Requests` responses with `Retry-After` headers. - Monitor repeated authorization failure spikes per IP or API key."
+  },
+  {
+    "chunk_id": "api-security_7",
+    "document_id": "api-security",
+    "document_title": "OWASP API Security Best Practices Cheat Sheet",
+    "url": "https://owasp.org/www-project-api-security/",
+    "category": "Standard",
+    "section": "Practical Inspection & Remediation Checklist",
+    "retrieval_date": "2026-10-11",
+    "text": "## Practical Inspection & Remediation Checklist - Audit all PUT/POST endpoints to ensure object mapping filters forbidden fields. - Validate that all public endpoints require token authentication unless specifically whitelisted as public (e.g. `/health`)."
+  },
+  {
+    "chunk_id": "authentication_0",
+    "document_id": "authentication",
+    "document_title": "OWASP Authentication Cheat Sheet",
+    "url": "https://cheatsheetseries.owasp.org/cheatsheets/Authentication_Cheat_Sheet.html",
+    "category": "Cheat Sheet",
+    "section": "OWASP Authentication Cheat Sheet",
+    "retrieval_date": "2026-10-11",
+    "text": "# OWASP Authentication Cheat Sheet Source: https://cheatsheetseries.owasp.org/cheatsheets/Authentication_Cheat_Sheet.html Retrieved: 2026-10-11 Author: OWASP Cheat Sheet Series Team"
+  },
+  {
+    "chunk_id": "authentication_1",
+    "document_id": "authentication",
+    "document_title": "OWASP Authentication Cheat Sheet",
+    "url": "https://cheatsheetseries.owasp.org/cheatsheets/Authentication_Cheat_Sheet.html",
+    "category": "Cheat Sheet",
+    "section": "Introduction",
+    "retrieval_date": "2026-10-11",
+    "text": "## Introduction Authentication is the process of verifying that an individual, entity, or website is who they claim to be. Authentication in the context of web applications is commonly performed by submitting a username or ID and one or more items of private information that only a given user should know. Session management is a process by which a server maintains the state of a user's authentication so that the user may continue to use the system without re-authenticating."
+  },
+  {
+    "chunk_id": "authentication_2",
+    "document_id": "authentication",
+    "document_title": "OWASP Authentication Cheat Sheet",
+    "url": "https://cheatsheetseries.owasp.org/cheatsheets/Authentication_Cheat_Sheet.html",
+    "category": "Cheat Sheet",
+    "section": "Password Storage Requirements",
+    "retrieval_date": "2026-10-11",
+    "text": "## Password Storage Requirements Passwords must never be stored in plaintext. Appropriate one-way hashing using modern adaptive algorithms must be used. Recommended algorithms ordered by preference: 1. **Argon2id** \u2014 memory-hard, time-cost, and parallelism parameters must be configured. Use a minimum of 64 MB memory, 3 iterations, and 4 parallel threads for interactive logins. 2. **bcrypt** \u2014 cost factor of at least 10 (recommend 12+) to protect against brute-force attacks. 3. **scrypt** \u2014 requi"
+  },
+  {
+    "chunk_id": "authentication_3",
+    "document_id": "authentication",
+    "document_title": "OWASP Authentication Cheat Sheet",
+    "url": "https://cheatsheetseries.owasp.org/cheatsheets/Authentication_Cheat_Sheet.html",
+    "category": "Cheat Sheet",
+    "section": "Password Storage Requirements",
+    "retrieval_date": "2026-10-11",
+    "text": "factor of at least 10 (recommend 12+) to protect against brute-force attacks. 3. **scrypt** \u2014 requires careful tuning of N, r, and p parameters. N=32768, r=8, p=1 is a reasonable starting point. 4. **PBKDF2** \u2014 use PBKDF2-HMAC-SHA256 with at least 600,000 iterations for passwords. Never use MD5, SHA-1, SHA-256, or any raw (unsalted) hash for password storage. These are designed for speed, not security, and are trivially vulnerable to dictionary attacks and rainbow tables."
+  },
+  {
+    "chunk_id": "authentication_4",
+    "document_id": "authentication",
+    "document_title": "OWASP Authentication Cheat Sheet",
+    "url": "https://cheatsheetseries.owasp.org/cheatsheets/Authentication_Cheat_Sheet.html",
+    "category": "Cheat Sheet",
+    "section": "Password Strength Requirements",
+    "retrieval_date": "2026-10-11",
+    "text": "## Password Strength Requirements Enforce the following minimum password policy: - Minimum 12 characters in length. - Allow all printable ASCII characters plus Unicode. - Do NOT enforce composition rules (uppercase/lowercase/digit/special) \u2014 length matters more. - Check passwords against a breach corpus such as HaveIBeenPwned or the NIST SP 800-63B word list. - Implement a password strength meter to encourage strong choices rather than only enforcing minimum rules."
+  },
+  {
+    "chunk_id": "authentication_5",
+    "document_id": "authentication",
+    "document_title": "OWASP Authentication Cheat Sheet",
+    "url": "https://cheatsheetseries.owasp.org/cheatsheets/Authentication_Cheat_Sheet.html",
+    "category": "Cheat Sheet",
+    "section": "Hardcoded Credentials in Source Code",
+    "retrieval_date": "2026-10-11",
+    "text": "## Hardcoded Credentials in Source Code Hardcoding passwords, API keys, tokens, or secrets directly in source code is a critical security failure corresponding to CWE-798 (Use of Hard-coded Credentials) and OWASP A07:2021. ### Vulnerable Pattern (Python) python"
+  },
+  {
+    "chunk_id": "authentication_6",
+    "document_id": "authentication",
+    "document_title": "OWASP Authentication Cheat Sheet",
+    "url": "https://cheatsheetseries.owasp.org/cheatsheets/Authentication_Cheat_Sheet.html",
+    "category": "Cheat Sheet",
+    "section": "NEVER hardcode credentials",
+    "retrieval_date": "2026-10-11",
+    "text": "# NEVER hardcode credentials DB_PASSWORD = \"SuperSecret123!\" # Hardcoded secret \u2014 OWASP A07 API_KEY = \"sk-live-abc123secret\" # Hardcoded API key \u2014 CWE-798 ### Secure Pattern (Python) import os DB_PASSWORD = os.getenv(\"DB_PASSWORD\") API_KEY = os.getenv(\"API_KEY\") if not DB_PASSWORD or not API_KEY: raise RuntimeError(\"Required secrets not configured in environment variables.\") ### Vulnerable Pattern (Java) // NEVER hardcode credentials in Java source files private static final String API_SECRET ="
+  },
+  {
+    "chunk_id": "authentication_7",
+    "document_id": "authentication",
+    "document_title": "OWASP Authentication Cheat Sheet",
+    "url": "https://cheatsheetseries.owasp.org/cheatsheets/Authentication_Cheat_Sheet.html",
+    "category": "Cheat Sheet",
+    "section": "NEVER hardcode credentials",
+    "retrieval_date": "2026-10-11",
+    "text": "(Java) // NEVER hardcode credentials in Java source files private static final String API_SECRET = \"AKIAIOSFODNN7EXAMPLE\"; // Exposed to decompilers private static final String DB_PASS = \"RootAdmin2026!\"; ### Secure Pattern (Java) // Load secrets from environment variables or a secrets manager private static final String API_SECRET = System.getenv(\"API_SECRET\"); private static final String DB_PASS = System.getenv(\"DB_PASSWORD\"); Use AWS Secrets Manager, HashiCorp Vault, Azure Key Vault, or equi"
+  },
+  {
+    "chunk_id": "authentication_8",
+    "document_id": "authentication",
+    "document_title": "OWASP Authentication Cheat Sheet",
+    "url": "https://cheatsheetseries.owasp.org/cheatsheets/Authentication_Cheat_Sheet.html",
+    "category": "Cheat Sheet",
+    "section": "NEVER hardcode credentials",
+    "retrieval_date": "2026-10-11",
+    "text": "S = System.getenv(\"DB_PASSWORD\"); Use AWS Secrets Manager, HashiCorp Vault, Azure Key Vault, or equivalent to manage production credentials externally."
+  },
+  {
+    "chunk_id": "authentication_9",
+    "document_id": "authentication",
+    "document_title": "OWASP Authentication Cheat Sheet",
+    "url": "https://cheatsheetseries.owasp.org/cheatsheets/Authentication_Cheat_Sheet.html",
+    "category": "Cheat Sheet",
+    "section": "Multi-Factor Authentication (MFA)",
+    "retrieval_date": "2026-10-11",
+    "text": "## Multi-Factor Authentication (MFA) Implement MFA for all accounts with elevated privileges. TOTP (Time-based One-Time Password, RFC 6238) using authenticator apps (e.g. Google Authenticator, Authy) is strongly recommended. Hardware security keys (FIDO2/WebAuthn) provide the strongest protection against phishing."
+  },
+  {
+    "chunk_id": "authentication_10",
+    "document_id": "authentication",
+    "document_title": "OWASP Authentication Cheat Sheet",
+    "url": "https://cheatsheetseries.owasp.org/cheatsheets/Authentication_Cheat_Sheet.html",
+    "category": "Cheat Sheet",
+    "section": "Brute Force Protection",
+    "retrieval_date": "2026-10-11",
+    "text": "## Brute Force Protection - Implement account lockout after 5\u201310 consecutive failed login attempts. - Use exponential back-off or CAPTCHA after repeated failures. - Log and alert on suspicious login patterns. - Never reveal whether a username exists via differential error messages: always return \"Invalid username or password.\""
+  },
+  {
+    "chunk_id": "authentication_11",
+    "document_id": "authentication",
+    "document_title": "OWASP Authentication Cheat Sheet",
+    "url": "https://cheatsheetseries.owasp.org/cheatsheets/Authentication_Cheat_Sheet.html",
+    "category": "Cheat Sheet",
+    "section": "Secure Session Management",
+    "retrieval_date": "2026-10-11",
+    "text": "## Secure Session Management - Generate session IDs with a cryptographically secure random source of at least 128 bits of entropy. - Regenerate session ID on privilege level change (e.g., after successful login). - Set Secure, HttpOnly, and SameSite=Strict attributes on session cookies. - Invalidate sessions on server-side upon logout. - Set appropriate session timeout (idle and absolute)."
+  },
+  {
+    "chunk_id": "authentication_12",
+    "document_id": "authentication",
+    "document_title": "OWASP Authentication Cheat Sheet",
+    "url": "https://cheatsheetseries.owasp.org/cheatsheets/Authentication_Cheat_Sheet.html",
+    "category": "Cheat Sheet",
+    "section": "Authentication Error Messages",
+    "retrieval_date": "2026-10-11",
+    "text": "## Authentication Error Messages Never differentiate between invalid username and invalid password in error messages. Always use a generic message: \"Invalid credentials.\" This prevents user enumeration attacks."
+  },
+  {
+    "chunk_id": "broken-access-control_0",
+    "document_id": "broken-access-control",
+    "document_title": "OWASP Broken Access Control Cheat Sheet",
+    "url": "https://cheatsheetseries.owasp.org/cheatsheets/Access_Control_Cheat_Sheet.html",
+    "category": "Cheat Sheet",
+    "section": "OWASP Broken Access Control Prevention Cheat Sheet",
+    "retrieval_date": "2026-10-11",
+    "text": "# OWASP Broken Access Control Prevention Cheat Sheet Source: https://cheatsheetseries.owasp.org/cheatsheets/Access_Control_Cheat_Sheet.html Retrieved: 2026-10-12 Author: OWASP Cheat Sheet Series Team Topic: Broken Access Control & Authorization"
+  },
+  {
+    "chunk_id": "broken-access-control_1",
+    "document_id": "broken-access-control",
+    "document_title": "OWASP Broken Access Control Cheat Sheet",
+    "url": "https://cheatsheetseries.owasp.org/cheatsheets/Access_Control_Cheat_Sheet.html",
+    "category": "Cheat Sheet",
+    "section": "Introduction",
+    "retrieval_date": "2026-10-11",
+    "text": "## Introduction Access control (or authorization) enforces policy such that users cannot act outside of their intended permissions. Failures typically lead to unauthorized information disclosure, modification, destruction of data, or performing a business function outside the user's limits."
+  },
+  {
+    "chunk_id": "broken-access-control_2",
+    "document_id": "broken-access-control",
+    "document_title": "OWASP Broken Access Control Cheat Sheet",
+    "url": "https://cheatsheetseries.owasp.org/cheatsheets/Access_Control_Cheat_Sheet.html",
+    "category": "Cheat Sheet",
+    "section": "Common Vulnerabilities and Attack Scenarios",
+    "retrieval_date": "2026-10-11",
+    "text": "## Common Vulnerabilities and Attack Scenarios 1. **Insecure Direct Object References (IDOR):** An application uses user-supplied input to access objects directly without verifying ownership or authorization (e.g., `/api/user/account?id=1052`). 2. **Missing Function Level Access Control:** Administrative endpoints or privileged functions are exposed to unauthenticated users or standard users simply by hiding UI links without enforcing server-side authorization. 3. **Bypassing Access Control Chec"
+  },
+  {
+    "chunk_id": "broken-access-control_3",
+    "document_id": "broken-access-control",
+    "document_title": "OWASP Broken Access Control Cheat Sheet",
+    "url": "https://cheatsheetseries.owasp.org/cheatsheets/Access_Control_Cheat_Sheet.html",
+    "category": "Cheat Sheet",
+    "section": "Common Vulnerabilities and Attack Scenarios",
+    "retrieval_date": "2026-10-11",
+    "text": "y by hiding UI links without enforcing server-side authorization. 3. **Bypassing Access Control Checks:** Tampering with JSON Web Tokens (JWTs), cookies, hidden form fields, or manipulating URLs to impersonate other identities. 4. **CORS Misconfiguration:** Permitting untrusted origins unauthorized access to protected API endpoints via overly permissive `Access-Control-Allow-Origin: *` headers with credentials."
+  },
+  {
+    "chunk_id": "broken-access-control_4",
+    "document_id": "broken-access-control",
+    "document_title": "OWASP Broken Access Control Cheat Sheet",
+    "url": "https://cheatsheetseries.owasp.org/cheatsheets/Access_Control_Cheat_Sheet.html",
+    "category": "Cheat Sheet",
+    "section": "Prevention and Defense Methods",
+    "retrieval_date": "2026-10-11",
+    "text": "## Prevention and Defense Methods - **Enforce Least Privilege by Default:** Deny access by default unless a resource is explicitly made public. - **Implement Server-Side Access Control Checks:** Never rely solely on client-side role checks, routing guards, or UI element masking. - **Adopt Indirect Reference Maps:** Use cryptographically secure GUIDs/UUIDs or session-bound mapping dictionaries instead of sequential database primary keys in public interfaces. - **Contextual Ownership Verification:"
+  },
+  {
+    "chunk_id": "broken-access-control_5",
+    "document_id": "broken-access-control",
+    "document_title": "OWASP Broken Access Control Cheat Sheet",
+    "url": "https://cheatsheetseries.owasp.org/cheatsheets/Access_Control_Cheat_Sheet.html",
+    "category": "Cheat Sheet",
+    "section": "Prevention and Defense Methods",
+    "retrieval_date": "2026-10-11",
+    "text": "ead of sequential database primary keys in public interfaces. - **Contextual Ownership Verification:** Always verify that the currently authenticated subject (user/tenant) owns the requested object. ### Secure Python Example python"
+  },
+  {
+    "chunk_id": "broken-access-control_6",
+    "document_id": "broken-access-control",
+    "document_title": "OWASP Broken Access Control Cheat Sheet",
+    "url": "https://cheatsheetseries.owasp.org/cheatsheets/Access_Control_Cheat_Sheet.html",
+    "category": "Cheat Sheet",
+    "section": "Unsafe IDOR pattern:",
+    "retrieval_date": "2026-10-11",
+    "text": "# Unsafe IDOR pattern:"
+  },
+  {
+    "chunk_id": "broken-access-control_7",
+    "document_id": "broken-access-control",
+    "document_title": "OWASP Broken Access Control Cheat Sheet",
+    "url": "https://cheatsheetseries.owasp.org/cheatsheets/Access_Control_Cheat_Sheet.html",
+    "category": "Cheat Sheet",
+    "section": "record = db.query(Invoice).filter_by(id=request.json['invoice_id']).first()",
+    "retrieval_date": "2026-10-11",
+    "text": "# record = db.query(Invoice).filter_by(id=request.json['invoice_id']).first()"
+  },
+  {
+    "chunk_id": "broken-access-control_8",
+    "document_id": "broken-access-control",
+    "document_title": "OWASP Broken Access Control Cheat Sheet",
+    "url": "https://cheatsheetseries.owasp.org/cheatsheets/Access_Control_Cheat_Sheet.html",
+    "category": "Cheat Sheet",
+    "section": "Safe ownership-checked authorization:",
+    "retrieval_date": "2026-10-11",
+    "text": "# Safe ownership-checked authorization: @app.route(\"/api/invoices/ \", methods=[\"GET\"]) @login_required def get_invoice(invoice_id): invoice = db.query(Invoice).filter_by( id=invoice_id, organization_id=current_user.organization_id ).first_or_404() return jsonify(invoice.to_dict()) ### Secure Java Example // Spring Security Method-Level Authorization @PreAuthorize(\"hasRole('ADMIN') or #order.customer.id == authentication.principal.id\") public Order getOrderDetails(Long orderId) { return orderRepo"
+  },
+  {
+    "chunk_id": "broken-access-control_9",
+    "document_id": "broken-access-control",
+    "document_title": "OWASP Broken Access Control Cheat Sheet",
+    "url": "https://cheatsheetseries.owasp.org/cheatsheets/Access_Control_Cheat_Sheet.html",
+    "category": "Cheat Sheet",
+    "section": "Safe ownership-checked authorization:",
+    "retrieval_date": "2026-10-11",
+    "text": "er.id == authentication.principal.id\") public Order getOrderDetails(Long orderId) { return orderRepository.findByIdAndTenantId(orderId, SecurityContext.getTenantId()) .orElseThrow(() -> new AccessDeniedException(\"Access denied to requested resource\")); }"
+  },
+  {
+    "chunk_id": "broken-access-control_10",
+    "document_id": "broken-access-control",
+    "document_title": "OWASP Broken Access Control Cheat Sheet",
+    "url": "https://cheatsheetseries.owasp.org/cheatsheets/Access_Control_Cheat_Sheet.html",
+    "category": "Cheat Sheet",
+    "section": "Practical Inspection & Remediation Checklist",
+    "retrieval_date": "2026-10-11",
+    "text": "## Practical Inspection & Remediation Checklist - Search for request parameters directly feeding database lookup queries without tenancy or user ID filters. - Ensure all mutation operations (PUT, POST, DELETE) validate that the caller holds the appropriate capability/role."
+  },
+  {
+    "chunk_id": "cryptographic-storage_0",
+    "document_id": "cryptographic-storage",
+    "document_title": "OWASP Cryptographic Storage Cheat Sheet",
+    "url": "https://cheatsheetseries.owasp.org/cheatsheets/Cryptographic_Storage_Cheat_Sheet.html",
+    "category": "Cheat Sheet",
+    "section": "OWASP Cryptographic Storage Cheat Sheet",
+    "retrieval_date": "2026-10-11",
+    "text": "# OWASP Cryptographic Storage Cheat Sheet Source: https://cheatsheetseries.owasp.org/cheatsheets/Cryptographic_Storage_Cheat_Sheet.html Retrieved: 2026-10-11 Author: OWASP Cheat Sheet Series Team"
+  },
+  {
+    "chunk_id": "cryptographic-storage_1",
+    "document_id": "cryptographic-storage",
+    "document_title": "OWASP Cryptographic Storage Cheat Sheet",
+    "url": "https://cheatsheetseries.owasp.org/cheatsheets/Cryptographic_Storage_Cheat_Sheet.html",
+    "category": "Cheat Sheet",
+    "section": "Introduction",
+    "retrieval_date": "2026-10-11",
+    "text": "## Introduction The purpose of this cheat sheet is to provide developers with a simple checklist to protect sensitive data at rest and ensure proper cryptographic controls are implemented across their applications."
+  },
+  {
+    "chunk_id": "cryptographic-storage_2",
+    "document_id": "cryptographic-storage",
+    "document_title": "OWASP Cryptographic Storage Cheat Sheet",
+    "url": "https://cheatsheetseries.owasp.org/cheatsheets/Cryptographic_Storage_Cheat_Sheet.html",
+    "category": "Cheat Sheet",
+    "section": "Broken and Insecure Algorithms to Avoid",
+    "retrieval_date": "2026-10-11",
+    "text": "## Broken and Insecure Algorithms to Avoid Do not use legacy, collision-vulnerable, or deprecated cryptographic algorithms: - **Broken Hashing Algorithms:** MD5, SHA-1, MD4, RIPEMD. Practical collision attacks exist against MD5 and SHA-1 that allow attackers to forge digital signatures and generate identical hashes for different contents. - **Broken Symmetric Ciphers:** DES, Triple DES (3DES), RC4, Blowfish. - **Insecure Modes of Operation:** Electronic Codebook (ECB) mode must never be used bec"
+  },
+  {
+    "chunk_id": "cryptographic-storage_3",
+    "document_id": "cryptographic-storage",
+    "document_title": "OWASP Cryptographic Storage Cheat Sheet",
+    "url": "https://cheatsheetseries.owasp.org/cheatsheets/Cryptographic_Storage_Cheat_Sheet.html",
+    "category": "Cheat Sheet",
+    "section": "Broken and Insecure Algorithms to Avoid",
+    "retrieval_date": "2026-10-11",
+    "text": ", Blowfish. - **Insecure Modes of Operation:** Electronic Codebook (ECB) mode must never be used because identical plaintext blocks encrypt to identical ciphertext blocks, preserving structural data patterns."
+  },
+  {
+    "chunk_id": "cryptographic-storage_4",
+    "document_id": "cryptographic-storage",
+    "document_title": "OWASP Cryptographic Storage Cheat Sheet",
+    "url": "https://cheatsheetseries.owasp.org/cheatsheets/Cryptographic_Storage_Cheat_Sheet.html",
+    "category": "Cheat Sheet",
+    "section": "Recommended Strong Cryptographic Algorithms",
+    "retrieval_date": "2026-10-11",
+    "text": "## Recommended Strong Cryptographic Algorithms - **Cryptographic Hashes (Integrity & Signatures):** SHA-256, SHA-384, SHA-512, or SHA-3 family. - **Password Storage:** Never use plain cryptographic hashes (like SHA-256 alone) for passwords. Always use adaptive, memory-hard key derivation functions: Argon2id (recommended), bcrypt, scrypt, or PBKDF2 with high iteration counts (minimum 600,000 iterations for HMAC-SHA256). - **Symmetric Encryption:** AES-GCM (Galois/Counter Mode) with 256-bit keys o"
+  },
+  {
+    "chunk_id": "cryptographic-storage_5",
+    "document_id": "cryptographic-storage",
+    "document_title": "OWASP Cryptographic Storage Cheat Sheet",
+    "url": "https://cheatsheetseries.owasp.org/cheatsheets/Cryptographic_Storage_Cheat_Sheet.html",
+    "category": "Cheat Sheet",
+    "section": "Recommended Strong Cryptographic Algorithms",
+    "retrieval_date": "2026-10-11",
+    "text": "ions for HMAC-SHA256). - **Symmetric Encryption:** AES-GCM (Galois/Counter Mode) with 256-bit keys or ChaCha20-Poly1305, providing authenticated encryption with associated data (AEAD)."
+  },
+  {
+    "chunk_id": "cryptographic-storage_6",
+    "document_id": "cryptographic-storage",
+    "document_title": "OWASP Cryptographic Storage Cheat Sheet",
+    "url": "https://cheatsheetseries.owasp.org/cheatsheets/Cryptographic_Storage_Cheat_Sheet.html",
+    "category": "Cheat Sheet",
+    "section": "Key Management and Secret Storage",
+    "retrieval_date": "2026-10-11",
+    "text": "## Key Management and Secret Storage - Never hardcode cryptographic keys, secret tokens, or API passwords in source code. - Keys must be generated using cryptographically secure pseudorandom number generators (CSPRNG), such as Python's `secrets` module or Java's `SecureRandom`. - Secrets should be externalized into secure key management systems (e.g., AWS KMS, HashiCorp Vault) or system environment variables."
+  },
+  {
+    "chunk_id": "deserialization-prevention_0",
+    "document_id": "deserialization-prevention",
+    "document_title": "OWASP Deserialization Cheat Sheet",
+    "url": "https://cheatsheetseries.owasp.org/cheatsheets/Deserialization_Cheat_Sheet.html",
+    "category": "Cheat Sheet",
+    "section": "OWASP Deserialization Cheat Sheet",
+    "retrieval_date": "2026-10-11",
+    "text": "# OWASP Deserialization Cheat Sheet Source: https://cheatsheetseries.owasp.org/cheatsheets/Deserialization_Cheat_Sheet.html Retrieved: 2026-10-11 Author: OWASP Cheat Sheet Series Team"
+  },
+  {
+    "chunk_id": "deserialization-prevention_1",
+    "document_id": "deserialization-prevention",
+    "document_title": "OWASP Deserialization Cheat Sheet",
+    "url": "https://cheatsheetseries.owasp.org/cheatsheets/Deserialization_Cheat_Sheet.html",
+    "category": "Cheat Sheet",
+    "section": "Introduction",
+    "retrieval_date": "2026-10-11",
+    "text": "## Introduction Serialization is the process of translating data structures or object state into a format that can be stored or transmitted across a network and reconstructed later. Deserialization is the reverse process: extracting a data structure from a series of bytes. Insecure deserialization is a vulnerability where untrusted data is used to inflict a denial of service, execute arbitrary code, or bypass authentication."
+  },
+  {
+    "chunk_id": "deserialization-prevention_2",
+    "document_id": "deserialization-prevention",
+    "document_title": "OWASP Deserialization Cheat Sheet",
+    "url": "https://cheatsheetseries.owasp.org/cheatsheets/Deserialization_Cheat_Sheet.html",
+    "category": "Cheat Sheet",
+    "section": "Python Deserialization Guidance",
+    "retrieval_date": "2026-10-11",
+    "text": "## Python Deserialization Guidance Python's standard `pickle` module is explicitly not secure against erroneous or maliciously constructed data. The `pickle` protocol allows arbitrary Python objects to define `__reduce__` or `__reduce_ex__` methods, which direct the unpickler to invoke any callable with arbitrary arguments during deserialization. python"
+  },
+  {
+    "chunk_id": "deserialization-prevention_3",
+    "document_id": "deserialization-prevention",
+    "document_title": "OWASP Deserialization Cheat Sheet",
+    "url": "https://cheatsheetseries.owasp.org/cheatsheets/Deserialization_Cheat_Sheet.html",
+    "category": "Cheat Sheet",
+    "section": "VULNERABLE:",
+    "retrieval_date": "2026-10-11",
+    "text": "# VULNERABLE: data = pickle.loads(untrusted_stream) # Remote Code Execution vulnerability! Remediation: 1. Never unpickle untrusted data. 2. Use safe data exchange formats such as JSON, Protocol Buffers, or CBOR. 3. If YAML is used, always use `yaml.safe_load(data)` or `yaml.load(data, Loader=yaml.SafeLoader)`."
+  },
+  {
+    "chunk_id": "deserialization-prevention_4",
+    "document_id": "deserialization-prevention",
+    "document_title": "OWASP Deserialization Cheat Sheet",
+    "url": "https://cheatsheetseries.owasp.org/cheatsheets/Deserialization_Cheat_Sheet.html",
+    "category": "Cheat Sheet",
+    "section": "Java Deserialization Guidance",
+    "retrieval_date": "2026-10-11",
+    "text": "## Java Deserialization Guidance Java native serialization using `ObjectInputStream.readObject()` permits the deserialization of complex object graphs. Attackers construct \"gadget chains\"\u2014sequences of classes already present on the application classpath (e.g., Apache Commons Collections, Spring Framework, Groovy)\u2014that trigger arbitrary method execution during object reconstruction. // VULNERABLE: ObjectInputStream ois = new ObjectInputStream(untrustedInputStream); Object obj = ois.readObject();"
+  },
+  {
+    "chunk_id": "deserialization-prevention_5",
+    "document_id": "deserialization-prevention",
+    "document_title": "OWASP Deserialization Cheat Sheet",
+    "url": "https://cheatsheetseries.owasp.org/cheatsheets/Deserialization_Cheat_Sheet.html",
+    "category": "Cheat Sheet",
+    "section": "Java Deserialization Guidance",
+    "retrieval_date": "2026-10-11",
+    "text": "ObjectInputStream ois = new ObjectInputStream(untrustedInputStream); Object obj = ois.readObject(); // RCE via gadget chains! Remediation: 1. Do not accept Java serialized objects from untrusted sources. 2. If serialized objects must be received, implement `ValidatingObjectInputStream` or use the Java 9+ serialization filtering API (`java.io.ObjectInputFilter`). 3. Migrate to JSON (Jackson, Gson) or Protocol Buffers."
+  },
+  {
+    "chunk_id": "input-validation_0",
+    "document_id": "input-validation",
+    "document_title": "OWASP Input Validation Cheat Sheet",
+    "url": "https://cheatsheetseries.owasp.org/cheatsheets/Input_Validation_Cheat_Sheet.html",
+    "category": "Cheat Sheet",
+    "section": "OWASP Input Validation Cheat Sheet",
+    "retrieval_date": "2026-10-11",
+    "text": "# OWASP Input Validation Cheat Sheet Source: https://cheatsheetseries.owasp.org/cheatsheets/Input_Validation_Cheat_Sheet.html Retrieved: 2026-10-11 Author: OWASP Cheat Sheet Series Team"
+  },
+  {
+    "chunk_id": "input-validation_1",
+    "document_id": "input-validation",
+    "document_title": "OWASP Input Validation Cheat Sheet",
+    "url": "https://cheatsheetseries.owasp.org/cheatsheets/Input_Validation_Cheat_Sheet.html",
+    "category": "Cheat Sheet",
+    "section": "Introduction",
+    "retrieval_date": "2026-10-11",
+    "text": "## Introduction Input validation is performed to ensure only properly formed data enters the workflow of an information system, preventing malformed data from persisting in the database and triggering malfunction of various downstream components. Input validation must be applied at every tier of the application (client, server, and database layer). Server-side validation is mandatory \u2014 client-side validation is convenience only and can be trivially bypassed."
+  },
+  {
+    "chunk_id": "input-validation_2",
+    "document_id": "input-validation",
+    "document_title": "OWASP Input Validation Cheat Sheet",
+    "url": "https://cheatsheetseries.owasp.org/cheatsheets/Input_Validation_Cheat_Sheet.html",
+    "category": "Cheat Sheet",
+    "section": "Goals of Input Validation",
+    "retrieval_date": "2026-10-11",
+    "text": "## Goals of Input Validation - Prevent injection attacks (SQLi, XSS, Command Injection, LDAP Injection, XML Injection). - Enforce business-rule constraints on data (type, length, format, range). - Reject unexpected, malicious, or malformed data before it reaches sensitive operations."
+  },
+  {
+    "chunk_id": "input-validation_3",
+    "document_id": "input-validation",
+    "document_title": "OWASP Input Validation Cheat Sheet",
+    "url": "https://cheatsheetseries.owasp.org/cheatsheets/Input_Validation_Cheat_Sheet.html",
+    "category": "Cheat Sheet",
+    "section": "Validation Strategies",
+    "retrieval_date": "2026-10-11",
+    "text": "## Validation Strategies ### Allowlist (Whitelist) Validation \u2014 Preferred Approach Define and enforce exactly what is acceptable. Reject anything that does not match the allowlist. This is the strongest form of validation. import re def validate_username(username: str) -> bool: \"\"\"Only allow alphanumeric and underscore, 3\u201332 chars.\"\"\" return bool(re.match(r'^[a-zA-Z0-9_]{3,32}$', username)) def validate_integer_range(value: str, min_val: int, max_val: int) -> int: \"\"\"Strictly parse and range-che"
+  },
+  {
+    "chunk_id": "input-validation_4",
+    "document_id": "input-validation",
+    "document_title": "OWASP Input Validation Cheat Sheet",
+    "url": "https://cheatsheetseries.owasp.org/cheatsheets/Input_Validation_Cheat_Sheet.html",
+    "category": "Cheat Sheet",
+    "section": "Validation Strategies",
+    "retrieval_date": "2026-10-11",
+    "text": "lidate_integer_range(value: str, min_val: int, max_val: int) -> int: \"\"\"Strictly parse and range-check an integer parameter.\"\"\" try: n = int(value) except (ValueError, TypeError): raise ValueError(f\"Expected integer, got: {value!r}\") if not (min_val <= n <= max_val): raise ValueError(f\"Value {n} out of allowed range [{min_val}, {max_val}].\") return n ### Denylist (Blacklist) Validation \u2014 Weak, Avoid Attempting to enumerate all dangerous inputs is fragile and easily bypassed through encoding tric"
+  },
+  {
+    "chunk_id": "input-validation_5",
+    "document_id": "input-validation",
+    "document_title": "OWASP Input Validation Cheat Sheet",
+    "url": "https://cheatsheetseries.owasp.org/cheatsheets/Input_Validation_Cheat_Sheet.html",
+    "category": "Cheat Sheet",
+    "section": "Validation Strategies",
+    "retrieval_date": "2026-10-11",
+    "text": "id Attempting to enumerate all dangerous inputs is fragile and easily bypassed through encoding tricks (URL encoding, HTML entity encoding, Unicode normalization). Only use denylist as an additional layer, never as a primary defense."
+  },
+  {
+    "chunk_id": "input-validation_6",
+    "document_id": "input-validation",
+    "document_title": "OWASP Input Validation Cheat Sheet",
+    "url": "https://cheatsheetseries.owasp.org/cheatsheets/Input_Validation_Cheat_Sheet.html",
+    "category": "Cheat Sheet",
+    "section": "SQL Injection Prevention via Parameterized Queries",
+    "retrieval_date": "2026-10-11",
+    "text": "## SQL Injection Prevention via Parameterized Queries All SQL queries must use parameterized queries (prepared statements) \u2014 never concatenate user data into query strings. ### Python \u2014 Parameterized Query python"
+  },
+  {
+    "chunk_id": "input-validation_7",
+    "document_id": "input-validation",
+    "document_title": "OWASP Input Validation Cheat Sheet",
+    "url": "https://cheatsheetseries.owasp.org/cheatsheets/Input_Validation_Cheat_Sheet.html",
+    "category": "Cheat Sheet",
+    "section": "SAFE: parameterized with placeholder",
+    "retrieval_date": "2026-10-11",
+    "text": "# SAFE: parameterized with placeholder cursor.execute( \"SELECT id, email FROM users WHERE username = %s AND active = %s\", (username, True) ) ### Java \u2014 PreparedStatement // SAFE: parameterized PreparedStatement String sql = \"SELECT id, email FROM users WHERE username = ? AND active = ?\"; PreparedStatement ps = connection.prepareStatement(sql); ps.setString(1, username); ps.setBoolean(2, true); ResultSet rs = ps.executeQuery(); Never use `Statement.executeQuery(\"SELECT ... WHERE username = '\" + u"
+  },
+  {
+    "chunk_id": "input-validation_8",
+    "document_id": "input-validation",
+    "document_title": "OWASP Input Validation Cheat Sheet",
+    "url": "https://cheatsheetseries.owasp.org/cheatsheets/Input_Validation_Cheat_Sheet.html",
+    "category": "Cheat Sheet",
+    "section": "SAFE: parameterized with placeholder",
+    "retrieval_date": "2026-10-11",
+    "text": "ultSet rs = ps.executeQuery(); Never use `Statement.executeQuery(\"SELECT ... WHERE username = '\" + username + \"'\")`."
+  },
+  {
+    "chunk_id": "input-validation_9",
+    "document_id": "input-validation",
+    "document_title": "OWASP Input Validation Cheat Sheet",
+    "url": "https://cheatsheetseries.owasp.org/cheatsheets/Input_Validation_Cheat_Sheet.html",
+    "category": "Cheat Sheet",
+    "section": "OS Command Injection Prevention",
+    "retrieval_date": "2026-10-11",
+    "text": "## OS Command Injection Prevention Never pass user-supplied data to shell-executing functions. If system commands are unavoidable, use argument array form without invoking a shell. ### Python \u2014 Unsafe vs Safe python"
+  },
+  {
+    "chunk_id": "input-validation_10",
+    "document_id": "input-validation",
+    "document_title": "OWASP Input Validation Cheat Sheet",
+    "url": "https://cheatsheetseries.owasp.org/cheatsheets/Input_Validation_Cheat_Sheet.html",
+    "category": "Cheat Sheet",
+    "section": "VULNERABLE: shell=True interprets shell metacharacters",
+    "retrieval_date": "2026-10-11",
+    "text": "# VULNERABLE: shell=True interprets shell metacharacters import subprocess subprocess.Popen(\"ping -c 1 \" + user_input, shell=True) # Command injection!"
+  },
+  {
+    "chunk_id": "input-validation_11",
+    "document_id": "input-validation",
+    "document_title": "OWASP Input Validation Cheat Sheet",
+    "url": "https://cheatsheetseries.owasp.org/cheatsheets/Input_Validation_Cheat_Sheet.html",
+    "category": "Cheat Sheet",
+    "section": "SAFE: argument list, shell=False (default)",
+    "retrieval_date": "2026-10-11",
+    "text": "# SAFE: argument list, shell=False (default) subprocess.run([\"ping\", \"-c\", \"1\", user_input], shell=False, timeout=5) ### Java \u2014 Unsafe vs Safe // VULNERABLE: passes string to shell Runtime.getRuntime().exec(\"nslookup \" + userInput); // SAFE: argument array bypasses shell interpretation String[] cmd = {\"nslookup\", userInput}; Runtime.getRuntime().exec(cmd);"
+  },
+  {
+    "chunk_id": "input-validation_12",
+    "document_id": "input-validation",
+    "document_title": "OWASP Input Validation Cheat Sheet",
+    "url": "https://cheatsheetseries.owasp.org/cheatsheets/Input_Validation_Cheat_Sheet.html",
+    "category": "Cheat Sheet",
+    "section": "Path Traversal Prevention",
+    "retrieval_date": "2026-10-11",
+    "text": "## Path Traversal Prevention Normalize and canonicalize file paths before use. Reject paths containing `..` sequences. import os from pathlib import Path SAFE_BASE = Path(\"/var/app/uploads\").resolve() def safe_file_path(user_filename: str) -> Path: \"\"\"Reject path traversal attempts.\"\"\" candidate = (SAFE_BASE / user_filename).resolve() if not str(candidate).startswith(str(SAFE_BASE)): raise ValueError(\"Path traversal detected.\") return candidate"
+  },
+  {
+    "chunk_id": "input-validation_13",
+    "document_id": "input-validation",
+    "document_title": "OWASP Input Validation Cheat Sheet",
+    "url": "https://cheatsheetseries.owasp.org/cheatsheets/Input_Validation_Cheat_Sheet.html",
+    "category": "Cheat Sheet",
+    "section": "Data Type and Length Validation",
+    "retrieval_date": "2026-10-11",
+    "text": "## Data Type and Length Validation Always validate data type and length before processing: - Strings: maximum length enforced; reject binary or non-printable characters where not expected. - Integers/Floats: parse strictly, enforce min/max range. - Email addresses: validate against RFC 5321 structure; never use regex alone as sole sanitization. - File uploads: validate MIME type server-side (not client-supplied Content-Type), check magic bytes, enforce maximum file size."
+  },
+  {
+    "chunk_id": "input-validation_14",
+    "document_id": "input-validation",
+    "document_title": "OWASP Input Validation Cheat Sheet",
+    "url": "https://cheatsheetseries.owasp.org/cheatsheets/Input_Validation_Cheat_Sheet.html",
+    "category": "Cheat Sheet",
+    "section": "Encoding and Escaping",
+    "retrieval_date": "2026-10-11",
+    "text": "## Encoding and Escaping Validation does not replace proper output encoding. Always apply context-aware escaping at the point of output: - HTML context: HTML-entity encode (`<` \u2192 `<`, `>` \u2192 `>`, `\"` \u2192 `\"`). - SQL context: use parameterized queries (never manual escaping). - Shell context: avoid entirely; if unavoidable use `shlex.quote()` in Python. - URL context: percent-encode user data."
+  },
+  {
+    "chunk_id": "os-command-injection_0",
+    "document_id": "os-command-injection",
+    "document_title": "OWASP OS Command Injection Defense Cheat Sheet",
+    "url": "https://cheatsheetseries.owasp.org/cheatsheets/OS_Command_Injection_Defense_Cheat_Sheet.html",
+    "category": "Cheat Sheet",
+    "section": "OWASP OS Command Injection Defense Cheat Sheet",
+    "retrieval_date": "2026-10-11",
+    "text": "# OWASP OS Command Injection Defense Cheat Sheet Source: https://cheatsheetseries.owasp.org/cheatsheets/OS_Command_Injection_Defense_Cheat_Sheet.html Retrieved: 2026-10-11 Author: OWASP Cheat Sheet Series Team"
+  },
+  {
+    "chunk_id": "os-command-injection_1",
+    "document_id": "os-command-injection",
+    "document_title": "OWASP OS Command Injection Defense Cheat Sheet",
+    "url": "https://cheatsheetseries.owasp.org/cheatsheets/OS_Command_Injection_Defense_Cheat_Sheet.html",
+    "category": "Cheat Sheet",
+    "section": "Introduction",
+    "retrieval_date": "2026-10-11",
+    "text": "## Introduction Command injection is an attack in which the goal is execution of arbitrary commands on the host operating system via a vulnerable application. Command injection vulnerabilities occur when an application passes unsafe user supplied data (forms, cookies, HTTP headers etc.) to a system shell. In this attack, the attacker-supplied operating system commands are executed with the privileges of the vulnerable application."
+  },
+  {
+    "chunk_id": "os-command-injection_2",
+    "document_id": "os-command-injection",
+    "document_title": "OWASP OS Command Injection Defense Cheat Sheet",
+    "url": "https://cheatsheetseries.owasp.org/cheatsheets/OS_Command_Injection_Defense_Cheat_Sheet.html",
+    "category": "Cheat Sheet",
+    "section": "Primary Defense: Avoid Calling OS Commands Directly",
+    "retrieval_date": "2026-10-11",
+    "text": "## Primary Defense: Avoid Calling OS Commands Directly The primary defense against command injection is to avoid calling external system commands directly whenever built-in API functions or programming language libraries exist. For example, instead of running `os.system(\"rm \" + filename)` or `Runtime.getRuntime().exec(\"del \" + filename)`, use language APIs like `os.remove(filename)` or Java's `Files.delete(path)`."
+  },
+  {
+    "chunk_id": "os-command-injection_3",
+    "document_id": "os-command-injection",
+    "document_title": "OWASP OS Command Injection Defense Cheat Sheet",
+    "url": "https://cheatsheetseries.owasp.org/cheatsheets/OS_Command_Injection_Defense_Cheat_Sheet.html",
+    "category": "Cheat Sheet",
+    "section": "Defense: Parameterization and Avoiding the System Shell",
+    "retrieval_date": "2026-10-11",
+    "text": "## Defense: Parameterization and Avoiding the System Shell If an external command must be executed, never invoke it through a command shell (such as `/bin/sh`, `/bin/bash`, `cmd.exe`, or `powershell.exe`). ### Python Subprocess Guidance In Python: - Use `subprocess.run()` or `subprocess.Popen()`. - Pass arguments as a discrete list of strings rather than a concatenated string. - Keep `shell=False` (which is the default). python"
+  },
+  {
+    "chunk_id": "os-command-injection_4",
+    "document_id": "os-command-injection",
+    "document_title": "OWASP OS Command Injection Defense Cheat Sheet",
+    "url": "https://cheatsheetseries.owasp.org/cheatsheets/OS_Command_Injection_Defense_Cheat_Sheet.html",
+    "category": "Cheat Sheet",
+    "section": "SAFE: Arguments are passed directly to execve without shell expansion",
+    "retrieval_date": "2026-10-11",
+    "text": "# SAFE: Arguments are passed directly to execve without shell expansion import subprocess result = subprocess.run([\"ping\", \"-c\", \"4\", target_host], shell=False, capture_output=True, text=True) - NEVER set `shell=True` when handling user input. - NEVER use `os.system()` or `os.popen()` because they always invoke the system shell. ### Java ProcessBuilder Guidance In Java: - Use `ProcessBuilder` with an array or List of arguments: ProcessBuilder pb = new ProcessBuilder(\"ping\", \"-c\", \"4\", targetHost"
+  },
+  {
+    "chunk_id": "os-command-injection_5",
+    "document_id": "os-command-injection",
+    "document_title": "OWASP OS Command Injection Defense Cheat Sheet",
+    "url": "https://cheatsheetseries.owasp.org/cheatsheets/OS_Command_Injection_Defense_Cheat_Sheet.html",
+    "category": "Cheat Sheet",
+    "section": "SAFE: Arguments are passed directly to execve without shell expansion",
+    "retrieval_date": "2026-10-11",
+    "text": "an array or List of arguments: ProcessBuilder pb = new ProcessBuilder(\"ping\", \"-c\", \"4\", targetHost); Process process = pb.start(); - Never pass arguments to `Runtime.getRuntime().exec(\"sh -c \" + command)` or `cmd.exe /c`."
+  },
+  {
+    "chunk_id": "os-command-injection_6",
+    "document_id": "os-command-injection",
+    "document_title": "OWASP OS Command Injection Defense Cheat Sheet",
+    "url": "https://cheatsheetseries.owasp.org/cheatsheets/OS_Command_Injection_Defense_Cheat_Sheet.html",
+    "category": "Cheat Sheet",
+    "section": "Defense: Strict Allow-list Input Validation",
+    "retrieval_date": "2026-10-11",
+    "text": "## Defense: Strict Allow-list Input Validation Validate all inputs against an allow-list of known safe characters (e.g. alphanumeric characters only) before passing them to any process or system command."
+  },
+  {
+    "chunk_id": "owasp-top-10_0",
+    "document_id": "owasp-top-10",
+    "document_title": "OWASP Top 10: 2025",
+    "url": "https://top10.owasp.org/2025/",
+    "category": "Standard",
+    "section": "OWASP Top 10 - 2025 The Ten Most Critical Web Application Security Risks",
+    "retrieval_date": "2026-10-11",
+    "text": "# OWASP Top 10 - 2025 The Ten Most Critical Web Application Security Risks Source: https://top10.owasp.org/2025/ Retrieved: 2026-10-14 Author: OWASP Foundation"
+  },
+  {
+    "chunk_id": "owasp-top-10_1",
+    "document_id": "owasp-top-10",
+    "document_title": "OWASP Top 10: 2025",
+    "url": "https://top10.owasp.org/2025/",
+    "category": "Standard",
+    "section": "A01:2025 - Broken Access Control",
+    "retrieval_date": "2026-10-11",
+    "text": "## A01:2025 - Broken Access Control Access control enforces policy such that users cannot act outside of their intended permissions. Retains the #1 position in the 2025 rankings. Access control failures typically lead to unauthorized information disclosure, modification, or destruction of data, or performing a business function outside the user's limits. In the 2025 edition, Server-Side Request Forgery (SSRF) and Open Redirects have been officially incorporated into Broken Access Control, recogn"
+  },
+  {
+    "chunk_id": "owasp-top-10_2",
+    "document_id": "owasp-top-10",
+    "document_title": "OWASP Top 10: 2025",
+    "url": "https://top10.owasp.org/2025/",
+    "category": "Standard",
+    "section": "A01:2025 - Broken Access Control",
+    "retrieval_date": "2026-10-11",
+    "text": "rgery (SSRF) and Open Redirects have been officially incorporated into Broken Access Control, recognizing that forcing an application server to act as an unauthorized proxy or redirect to untrusted destinations represents an access control boundary violation. Common access control vulnerabilities include bypassing access control checks by modifying URLs, internal application state, or HTML forms; using custom API attack tools; permitting viewing or editing someone else's account by providing its"
+  },
+  {
+    "chunk_id": "owasp-top-10_3",
+    "document_id": "owasp-top-10",
+    "document_title": "OWASP Top 10: 2025",
+    "url": "https://top10.owasp.org/2025/",
+    "category": "Standard",
+    "section": "A01:2025 - Broken Access Control",
+    "retrieval_date": "2026-10-11",
+    "text": "using custom API attack tools; permitting viewing or editing someone else's account by providing its unique identifier (Insecure Direct Object References - IDOR); missing access controls on sensitive HTTP methods (POST, PUT, DELETE); elevation of privilege (acting as an administrator without logging in); metadata manipulation (replaying or tampering with JWT tokens or cookie permissions); CORS misconfiguration permitting unauthorized API access; and SSRF attacks where attackers coerce server req"
+  },
+  {
+    "chunk_id": "owasp-top-10_4",
+    "document_id": "owasp-top-10",
+    "document_title": "OWASP Top 10: 2025",
+    "url": "https://top10.owasp.org/2025/",
+    "category": "Standard",
+    "section": "A01:2025 - Broken Access Control",
+    "retrieval_date": "2026-10-11",
+    "text": "configuration permitting unauthorized API access; and SSRF attacks where attackers coerce server requests to internal backends, loopback interfaces, or cloud metadata endpoints. Prevention requires enforcing least privilege by default, denying access unless explicitly granted, centralizing authorization checks in controllers or gateway filters, disabling directory browsing, recording access control failures, and validating destination IP addresses/hostnames with strict allowlists for outbound re"
+  },
+  {
+    "chunk_id": "owasp-top-10_5",
+    "document_id": "owasp-top-10",
+    "document_title": "OWASP Top 10: 2025",
+    "url": "https://top10.owasp.org/2025/",
+    "category": "Standard",
+    "section": "A01:2025 - Broken Access Control",
+    "retrieval_date": "2026-10-11",
+    "text": "l failures, and validating destination IP addresses/hostnames with strict allowlists for outbound requests."
+  },
+  {
+    "chunk_id": "owasp-top-10_6",
+    "document_id": "owasp-top-10",
+    "document_title": "OWASP Top 10: 2025",
+    "url": "https://top10.owasp.org/2025/",
+    "category": "Standard",
+    "section": "A02:2025 - Security Misconfiguration",
+    "retrieval_date": "2026-10-11",
+    "text": "## A02:2025 - Security Misconfiguration Security Misconfiguration climbed significantly to #2 in the 2025 edition, reflecting the widespread complexity of multi-cloud architectures, container orchestration, microservices, and modern CI/CD pipelines. Security misconfiguration happens when security controls are inaccurately defined, implemented, or maintained, or left at default settings. Common vulnerabilities include unhardened default configurations, enabled default accounts and passwords, unne"
+  },
+  {
+    "chunk_id": "owasp-top-10_7",
+    "document_id": "owasp-top-10",
+    "document_title": "OWASP Top 10: 2025",
+    "url": "https://top10.owasp.org/2025/",
+    "category": "Standard",
+    "section": "A02:2025 - Security Misconfiguration",
+    "retrieval_date": "2026-10-11",
+    "text": "nerabilities include unhardened default configurations, enabled default accounts and passwords, unnecessary enabled ports, features, components, services, or sample pages, missing or misconfigured HTTP security headers (such as Content-Security-Policy, Strict-Transport-Security, X-Content-Type-Options), overly permissive Cross-Origin Resource Sharing (CORS) configurations, verbose error messages displaying detailed stack traces or internal database error codes, misconfigured cloud storage permis"
+  },
+  {
+    "chunk_id": "owasp-top-10_8",
+    "document_id": "owasp-top-10",
+    "document_title": "OWASP Top 10: 2025",
+    "url": "https://top10.owasp.org/2025/",
+    "category": "Standard",
+    "section": "A02:2025 - Security Misconfiguration",
+    "retrieval_date": "2026-10-11",
+    "text": "isplaying detailed stack traces or internal database error codes, misconfigured cloud storage permissions (e.g., publicly readable AWS S3 buckets, exposed Azure blobs), unpatched software or outdated container base images, and insecure configuration files with debug modes left active in production. Prevention requires automated, repeatable hardening processes, deploying environments via Infrastructure as Code (IaC) with immutable configurations, removing unused features and frameworks, disallowi"
+  },
+  {
+    "chunk_id": "owasp-top-10_9",
+    "document_id": "owasp-top-10",
+    "document_title": "OWASP Top 10: 2025",
+    "url": "https://top10.owasp.org/2025/",
+    "category": "Standard",
+    "section": "A02:2025 - Security Misconfiguration",
+    "retrieval_date": "2026-10-11",
+    "text": "ture as Code (IaC) with immutable configurations, removing unused features and frameworks, disallowing default credentials, reviewing cloud permissions continuously, sending security headers, and sanitizing error responses for external clients."
+  },
+  {
+    "chunk_id": "owasp-top-10_10",
+    "document_id": "owasp-top-10",
+    "document_title": "OWASP Top 10: 2025",
+    "url": "https://top10.owasp.org/2025/",
+    "category": "Standard",
+    "section": "A03:2025 - Software Supply Chain Failures",
+    "retrieval_date": "2026-10-11",
+    "text": "## A03:2025 - Software Supply Chain Failures A major new category for the 2025 edition, expanding and superseding the previous \"Vulnerable and Outdated Components\" category. Modern applications are heavily assembled from thousands of third-party open-source libraries, container registries, build plugins, and automated CI/CD distribution pipelines. Software Supply Chain Failures encompass risks introduced across the entire software development, delivery, and deployment lifecycle. Attack vectors i"
+  },
+  {
+    "chunk_id": "owasp-top-10_11",
+    "document_id": "owasp-top-10",
+    "document_title": "OWASP Top 10: 2025",
+    "url": "https://top10.owasp.org/2025/",
+    "category": "Standard",
+    "section": "A03:2025 - Software Supply Chain Failures",
+    "retrieval_date": "2026-10-11",
+    "text": "roduced across the entire software development, delivery, and deployment lifecycle. Attack vectors include malicious or hijacked open-source packages in public repositories (such as npm, PyPI, Maven Central, or Docker Hub), typosquatting, dependency confusion where attackers publish malicious public packages with internal namespace names, compromised developer or maintainer accounts, malicious build-time script execution during package installation (e.g. postinstall hooks), compromised CI/CD pip"
+  },
+  {
+    "chunk_id": "owasp-top-10_12",
+    "document_id": "owasp-top-10",
+    "document_title": "OWASP Top 10: 2025",
+    "url": "https://top10.owasp.org/2025/",
+    "category": "Standard",
+    "section": "A03:2025 - Software Supply Chain Failures",
+    "retrieval_date": "2026-10-11",
+    "text": "ld-time script execution during package installation (e.g. postinstall hooks), compromised CI/CD pipelines injecting unauthorized code into release binaries, lack of cryptographic package verification, and unpatched CVEs in nested transitive dependencies. Prevention requires generating and maintaining an active Software Bill of Materials (SBOM), conducting automated Software Composition Analysis (SCA) in CI/CD pipelines, pinning exact package versions with cryptographic hash verification (lockfi"
+  },
+  {
+    "chunk_id": "owasp-top-10_13",
+    "document_id": "owasp-top-10",
+    "document_title": "OWASP Top 10: 2025",
+    "url": "https://top10.owasp.org/2025/",
+    "category": "Standard",
+    "section": "A03:2025 - Software Supply Chain Failures",
+    "retrieval_date": "2026-10-11",
+    "text": "SCA) in CI/CD pipelines, pinning exact package versions with cryptographic hash verification (lockfiles), using private artifact repositories with scoped namespaces to prevent dependency confusion, enforcing multi-factor authentication (MFA) and least privilege for CI/CD runners and package registries, signing build artifacts with digital signatures (Sigstore, Cosign), and continuously inventorying and patching dependencies."
+  },
+  {
+    "chunk_id": "owasp-top-10_14",
+    "document_id": "owasp-top-10",
+    "document_title": "OWASP Top 10: 2025",
+    "url": "https://top10.owasp.org/2025/",
+    "category": "Standard",
+    "section": "A04:2025 - Cryptographic Failures",
+    "retrieval_date": "2026-10-11",
+    "text": "## A04:2025 - Cryptographic Failures Cryptographic Failures (ranked #4 in 2025, previously known as Sensitive Data Exposure) focuses on flaws related to cryptography that expose sensitive data in transit, at rest, or during processing. Sensitive data includes passwords, credit card numbers, health records, personal identifiable information (PII), secret keys, and business secrets requiring enhanced protection under regulations like GDPR and PCI-DSS. Failures occur when sensitive data is transmit"
+  },
+  {
+    "chunk_id": "owasp-top-10_15",
+    "document_id": "owasp-top-10",
+    "document_title": "OWASP Top 10: 2025",
+    "url": "https://top10.owasp.org/2025/",
+    "category": "Standard",
+    "section": "A04:2025 - Cryptographic Failures",
+    "retrieval_date": "2026-10-11",
+    "text": "d protection under regulations like GDPR and PCI-DSS. Failures occur when sensitive data is transmitted in clear text protocols (such as unencrypted HTTP, SMTP, or FTP), when broken or deprecated cryptographic algorithms are utilized (e.g., MD5, SHA-1, DES, 3DES, RC4), when default or hardcoded cryptographic keys are used, when weak random number generators (e.g., standard pseudo-random generators instead of CSPRNG) are used for key or token generation, when initialization vectors (IVs) are reus"
+  },
+  {
+    "chunk_id": "owasp-top-10_16",
+    "document_id": "owasp-top-10",
+    "document_title": "OWASP Top 10: 2025",
+    "url": "https://top10.owasp.org/2025/",
+    "category": "Standard",
+    "section": "A04:2025 - Cryptographic Failures",
+    "retrieval_date": "2026-10-11",
+    "text": "instead of CSPRNG) are used for key or token generation, when initialization vectors (IVs) are reused in cipher modes like CBC or GCM, and when passwords are stored using weak hashes without salt and memory-hard work factors. Prevention requires classifying all data processed, stored, or transmitted, encrypting all data in transit with modern TLS (TLS 1.3), disabling legacy cryptographic suites, encrypting sensitive data at rest using authenticated encryption (AES-256-GCM), managing keys throug"
+  },
+  {
+    "chunk_id": "owasp-top-10_17",
+    "document_id": "owasp-top-10",
+    "document_title": "OWASP Top 10: 2025",
+    "url": "https://top10.owasp.org/2025/",
+    "category": "Standard",
+    "section": "A04:2025 - Cryptographic Failures",
+    "retrieval_date": "2026-10-11",
+    "text": "encrypting sensitive data at rest using authenticated encryption (AES-256-GCM), managing keys through dedicated Hardware Security Modules (HSM) or secrets managers, and hashing passwords exclusively with adaptive, salted algorithms such as Argon2id, bcrypt, or PBKDF2."
+  },
+  {
+    "chunk_id": "owasp-top-10_18",
+    "document_id": "owasp-top-10",
+    "document_title": "OWASP Top 10: 2025",
+    "url": "https://top10.owasp.org/2025/",
+    "category": "Standard",
+    "section": "A05:2025 - Injection",
+    "retrieval_date": "2026-10-11",
+    "text": "## A05:2025 - Injection Injection flaws (ranked #5 in 2025) occur when untrusted data is sent to an interpreter as part of a command or query. The attacker's hostile payload tricks the interpreter into executing unintended commands, evaluating code, or accessing and modifying database records without authorization. Injection encompasses SQL Injection, NoSQL Injection, OS Command Injection, Object-Relational Mapping (ORM) injection, Cross-Site Scripting (XSS), Server-Side Template Injection (SSTI"
+  },
+  {
+    "chunk_id": "owasp-top-10_19",
+    "document_id": "owasp-top-10",
+    "document_title": "OWASP Top 10: 2025",
+    "url": "https://top10.owasp.org/2025/",
+    "category": "Standard",
+    "section": "A05:2025 - Injection",
+    "retrieval_date": "2026-10-11",
+    "text": "Relational Mapping (ORM) injection, Cross-Site Scripting (XSS), Server-Side Template Injection (SSTI), and Expression Language (EL) injection. Primary vectors include concatenating user input directly into SQL statements (`SELECT * FROM users WHERE name = ' + user`), passing unsanitized parameters into system shells (`subprocess.Popen(cmd, shell=True)`, `Runtime.getRuntime().exec()`), evaluating untrusted strings as code (`eval()`, `exec()`), and rendering user inputs directly in web templates w"
+  },
+  {
+    "chunk_id": "owasp-top-10_20",
+    "document_id": "owasp-top-10",
+    "document_title": "OWASP Top 10: 2025",
+    "url": "https://top10.owasp.org/2025/",
+    "category": "Standard",
+    "section": "A05:2025 - Injection",
+    "retrieval_date": "2026-10-11",
+    "text": "ntrusted strings as code (`eval()`, `exec()`), and rendering user inputs directly in web templates without contextual output encoding. Prevention requires keeping untrusted data strictly separate from commands and queries: utilizing parameterized queries and prepared statements for all database operations, avoiding system shells and using argument arrays (`shell=False`), implementing strict allowlist input validation, using modern web frameworks with automatic contextual output encoding, and imp"
+  },
+  {
+    "chunk_id": "owasp-top-10_21",
+    "document_id": "owasp-top-10",
+    "document_title": "OWASP Top 10: 2025",
+    "url": "https://top10.owasp.org/2025/",
+    "category": "Standard",
+    "section": "A05:2025 - Injection",
+    "retrieval_date": "2026-10-11",
+    "text": "ist input validation, using modern web frameworks with automatic contextual output encoding, and implementing Content Security Policy (CSP)."
+  },
+  {
+    "chunk_id": "owasp-top-10_22",
+    "document_id": "owasp-top-10",
+    "document_title": "OWASP Top 10: 2025",
+    "url": "https://top10.owasp.org/2025/",
+    "category": "Standard",
+    "section": "A06:2025 - Insecure Design",
+    "retrieval_date": "2026-10-11",
+    "text": "## A06:2025 - Insecure Design Insecure Design (ranked #6 in 2025) focuses on risks related to design and architectural flaws. Unlike implementation bugs, an insecure design cannot be fixed by a perfect implementation because the necessary security controls were never designed into the system. Insecure design encompasses missing or flawed business logic controls, lack of threat modeling, failure to isolate tenant boundaries in multi-tenant SaaS architectures, insecure state machines allowing step"
+  },
+  {
+    "chunk_id": "owasp-top-10_23",
+    "document_id": "owasp-top-10",
+    "document_title": "OWASP Top 10: 2025",
+    "url": "https://top10.owasp.org/2025/",
+    "category": "Standard",
+    "section": "A06:2025 - Insecure Design",
+    "retrieval_date": "2026-10-11",
+    "text": "isolate tenant boundaries in multi-tenant SaaS architectures, insecure state machines allowing steps in a checkout or approval workflow to be bypassed, credential recovery flows based on weak security questions, and lack of defense-in-depth architecture. Prevention requires adopting a Secure Development Lifecycle (SDL) with application security reviews, conducting threat modeling during the architecture phase (identifying STRIDE threats and abuse cases), establishing secure design patterns and"
+  },
+  {
+    "chunk_id": "owasp-top-10_24",
+    "document_id": "owasp-top-10",
+    "document_title": "OWASP Top 10: 2025",
+    "url": "https://top10.owasp.org/2025/",
+    "category": "Standard",
+    "section": "A06:2025 - Insecure Design",
+    "retrieval_date": "2026-10-11",
+    "text": "tecture phase (identifying STRIDE threats and abuse cases), establishing secure design patterns and reference architectures, segregating networks and services by trust boundaries, limiting resource consumption per tenant to prevent DoS, and integrating security user stories and acceptance criteria directly into project management."
+  },
+  {
+    "chunk_id": "owasp-top-10_25",
+    "document_id": "owasp-top-10",
+    "document_title": "OWASP Top 10: 2025",
+    "url": "https://top10.owasp.org/2025/",
+    "category": "Standard",
+    "section": "A07:2025 - Authentication Failures",
+    "retrieval_date": "2026-10-11",
+    "text": "## A07:2025 - Authentication Failures Authentication Failures (formerly Identification and Authentication Failures, ranked #7 in 2025) occur when mechanisms verifying user identity, managing sessions, or protecting credentials fail, permitting attackers to impersonate legitimate users or compromise accounts. Common vulnerabilities include allowing automated credential stuffing and brute force attacks without rate limiting or CAPTCHA, permitting weak or well-known passwords without complexity and"
+  },
+  {
+    "chunk_id": "owasp-top-10_26",
+    "document_id": "owasp-top-10",
+    "document_title": "OWASP Top 10: 2025",
+    "url": "https://top10.owasp.org/2025/",
+    "category": "Standard",
+    "section": "A07:2025 - Authentication Failures",
+    "retrieval_date": "2026-10-11",
+    "text": "cks without rate limiting or CAPTCHA, permitting weak or well-known passwords without complexity and breach checking, storing passwords in plain text or using reversible encryption, weak or insecure password recovery mechanisms, exposing session tokens in URLs, failing to invalidate session IDs during logout or password changes, missing multi-factor authentication (MFA) on sensitive accounts, hardcoding credentials, tokens, or API keys directly in source code or repositories, and predictable ses"
+  },
+  {
+    "chunk_id": "owasp-top-10_27",
+    "document_id": "owasp-top-10",
+    "document_title": "OWASP Top 10: 2025",
+    "url": "https://top10.owasp.org/2025/",
+    "category": "Standard",
+    "section": "A07:2025 - Authentication Failures",
+    "retrieval_date": "2026-10-11",
+    "text": "coding credentials, tokens, or API keys directly in source code or repositories, and predictable session token generation. Prevention requires enforcing Multi-Factor Authentication (MFA), enforcing password strength and checking against known breach databases (e.g., Have I Been Pwned), implementing robust login rate limiting and IP throttling, using cryptographically secure session identifiers stored with HttpOnly, Secure, and SameSite cookie flags, invalidating sessions on logout and idle timeo"
+  },
+  {
+    "chunk_id": "owasp-top-10_28",
+    "document_id": "owasp-top-10",
+    "document_title": "OWASP Top 10: 2025",
+    "url": "https://top10.owasp.org/2025/",
+    "category": "Standard",
+    "section": "A07:2025 - Authentication Failures",
+    "retrieval_date": "2026-10-11",
+    "text": "red with HttpOnly, Secure, and SameSite cookie flags, invalidating sessions on logout and idle timeouts, and keeping credentials out of source code by utilizing secrets management solutions."
+  },
+  {
+    "chunk_id": "owasp-top-10_29",
+    "document_id": "owasp-top-10",
+    "document_title": "OWASP Top 10: 2025",
+    "url": "https://top10.owasp.org/2025/",
+    "category": "Standard",
+    "section": "A08:2025 - Software or Data Integrity Failures",
+    "retrieval_date": "2026-10-11",
+    "text": "## A08:2025 - Software or Data Integrity Failures Software or Data Integrity Failures (ranked #8 in 2025) focuses on code and infrastructure that treats unverified or untrusted code or serialized objects as valid. A critical subset of this category is Insecure Deserialization (CWE-502). Applications often serialize complex objects into binary or text formats (such as Java native serialization or Python's pickle) and transmit or store them. When an application deserializes untrusted input without"
+  },
+  {
+    "chunk_id": "owasp-top-10_30",
+    "document_id": "owasp-top-10",
+    "document_title": "OWASP Top 10: 2025",
+    "url": "https://top10.owasp.org/2025/",
+    "category": "Standard",
+    "section": "A08:2025 - Software or Data Integrity Failures",
+    "retrieval_date": "2026-10-11",
+    "text": "ython's pickle) and transmit or store them. When an application deserializes untrusted input without validation, an attacker can manipulate object structures to invoke arbitrary method chains (gadget chains), leading to Remote Code Execution (RCE), arbitrary file writes, or privilege escalation. Other vulnerabilities include unverified auto-update mechanisms downloading executable files without digital signature checks, trusting dynamic plugins or scripts loaded from unverified CDNs, and mass as"
+  },
+  {
+    "chunk_id": "owasp-top-10_31",
+    "document_id": "owasp-top-10",
+    "document_title": "OWASP Top 10: 2025",
+    "url": "https://top10.owasp.org/2025/",
+    "category": "Standard",
+    "section": "A08:2025 - Software or Data Integrity Failures",
+    "retrieval_date": "2026-10-11",
+    "text": "gital signature checks, trusting dynamic plugins or scripts loaded from unverified CDNs, and mass assignment or prototype pollution vulnerabilities where untrusted inputs modify internal object properties. Prevention requires never accepting serialized objects from untrusted sources, preferring standard, safe data interchange formats like JSON or Protocol Buffers, implementing strict object filtering (e.g., Java ObjectInputFilter), signing and verifying digital signatures on all updates and bina"
+  },
+  {
+    "chunk_id": "owasp-top-10_32",
+    "document_id": "owasp-top-10",
+    "document_title": "OWASP Top 10: 2025",
+    "url": "https://top10.owasp.org/2025/",
+    "category": "Standard",
+    "section": "A08:2025 - Software or Data Integrity Failures",
+    "retrieval_date": "2026-10-11",
+    "text": "ing (e.g., Java ObjectInputFilter), signing and verifying digital signatures on all updates and binaries, and restricting object attribute assignment to explicit allowlists."
+  },
+  {
+    "chunk_id": "owasp-top-10_33",
+    "document_id": "owasp-top-10",
+    "document_title": "OWASP Top 10: 2025",
+    "url": "https://top10.owasp.org/2025/",
+    "category": "Standard",
+    "section": "A09:2025 - Security Logging and Alerting Failures",
+    "retrieval_date": "2026-10-11",
+    "text": "## A09:2025 - Security Logging and Alerting Failures Security Logging and Alerting Failures (ranked #9 in 2025, updated to place explicit emphasis on real-time alerting) addresses deficiencies in recording security events and detecting active intrusions. Without adequate logging and alerting, attacks cannot be detected, investigated, or contained, allowing attackers to maintain persistence, pivot laterally, and exfiltrate data undetected for months. Failures occur when auditable security events"
+  },
+  {
+    "chunk_id": "owasp-top-10_34",
+    "document_id": "owasp-top-10",
+    "document_title": "OWASP Top 10: 2025",
+    "url": "https://top10.owasp.org/2025/",
+    "category": "Standard",
+    "section": "A09:2025 - Security Logging and Alerting Failures",
+    "retrieval_date": "2026-10-11",
+    "text": "laterally, and exfiltrate data undetected for months. Failures occur when auditable security events (such as failed logins, access control denials, server-side validation errors, exception states, privilege escalations, and sensitive data exports) are not logged, when log entries omit crucial context (timestamps, user IDs, IP addresses), when logs are stored insecurely where attackers can tamper with or delete them, when log injection occurs due to unescaped user input in log messages, and when"
+  },
+  {
+    "chunk_id": "owasp-top-10_35",
+    "document_id": "owasp-top-10",
+    "document_title": "OWASP Top 10: 2025",
+    "url": "https://top10.owasp.org/2025/",
+    "category": "Standard",
+    "section": "A09:2025 - Security Logging and Alerting Failures",
+    "retrieval_date": "2026-10-11",
+    "text": "ith or delete them, when log injection occurs due to unescaped user input in log messages, and when alerts are missing or thresholds are set so high that real attacks fail to trigger incident response. Prevention requires logging all authentication, authorization, and input validation failures with sufficient context, formatting logs consistently (e.g. JSON), preventing log injection via character sanitization, transmitting logs in real-time to centralized, tamper-resistant SIEM solutions, estab"
+  },
+  {
+    "chunk_id": "owasp-top-10_36",
+    "document_id": "owasp-top-10",
+    "document_title": "OWASP Top 10: 2025",
+    "url": "https://top10.owasp.org/2025/",
+    "category": "Standard",
+    "section": "A09:2025 - Security Logging and Alerting Failures",
+    "retrieval_date": "2026-10-11",
+    "text": "sanitization, transmitting logs in real-time to centralized, tamper-resistant SIEM solutions, establishing real-time alerting rules for abnormal activity, and maintaining a tested incident response and disaster recovery plan."
+  },
+  {
+    "chunk_id": "owasp-top-10_37",
+    "document_id": "owasp-top-10",
+    "document_title": "OWASP Top 10: 2025",
+    "url": "https://top10.owasp.org/2025/",
+    "category": "Standard",
+    "section": "A10:2025 - Mishandling of Exceptional Conditions",
+    "retrieval_date": "2026-10-11",
+    "text": "## A10:2025 - Mishandling of Exceptional Conditions Mishandling of Exceptional Conditions is a brand-new category in the 2025 edition (ranked #10), consolidating weaknesses related to improper exception handling, unhandled error states, and insecure logic branching. When an application encounters unexpected inputs, network timeouts, resource exhaustion, or runtime errors, failing to handle these conditions securely can cause the application to crash, leak sensitive internals, or \"fail open\" \u2014 in"
+  },
+  {
+    "chunk_id": "owasp-top-10_38",
+    "document_id": "owasp-top-10",
+    "document_title": "OWASP Top 10: 2025",
+    "url": "https://top10.owasp.org/2025/",
+    "category": "Standard",
+    "section": "A10:2025 - Mishandling of Exceptional Conditions",
+    "retrieval_date": "2026-10-11",
+    "text": "onditions securely can cause the application to crash, leak sensitive internals, or \"fail open\" \u2014 inadvertently bypassing security checks. Common vulnerabilities include \"failing open\" (CWE-636) where an exception during authentication or permission checking defaults to granting access instead of denying, verbose error messages (CWE-209) exposing stack traces, internal software versions, database structures, or physical file paths to attackers, unhandled NULL pointer dereferences (CWE-476) or un"
+  },
+  {
+    "chunk_id": "owasp-top-10_39",
+    "document_id": "owasp-top-10",
+    "document_title": "OWASP Top 10: 2025",
+    "url": "https://top10.owasp.org/2025/",
+    "category": "Standard",
+    "section": "A10:2025 - Mishandling of Exceptional Conditions",
+    "retrieval_date": "2026-10-11",
+    "text": "structures, or physical file paths to attackers, unhandled NULL pointer dereferences (CWE-476) or uncaught exceptions leading to denial of service, improper handling of missing parameters (CWE-234), and generic catch-all blocks (`catch (Exception e) {}` or `except: pass`) that swallow critical errors and leave systems in inconsistent or vulnerable states. Prevention requires designing systems to always \"fail secure\" (defaulting to denial of access and safe aborts when errors occur), validating a"
+  },
+  {
+    "chunk_id": "owasp-top-10_40",
+    "document_id": "owasp-top-10",
+    "document_title": "OWASP Top 10: 2025",
+    "url": "https://top10.owasp.org/2025/",
+    "category": "Standard",
+    "section": "A10:2025 - Mishandling of Exceptional Conditions",
+    "retrieval_date": "2026-10-11",
+    "text": "lways \"fail secure\" (defaulting to denial of access and safe aborts when errors occur), validating all inputs to prevent unexpected runtime states, implementing localized, specific exception handling rather than silent error suppression, sanitizing error responses to return generic error codes to external clients while logging detailed diagnostics internally, and rigorous unit and fuzz testing of edge cases and exceptional condition paths."
+  },
+  {
+    "chunk_id": "path-traversal-prevention_0",
+    "document_id": "path-traversal-prevention",
+    "document_title": "OWASP Path Traversal & Safe File Access Cheat Sheet",
+    "url": "https://owasp.org/www-community/attacks/Path_Traversal",
+    "category": "Cheat Sheet",
+    "section": "OWASP Path Traversal & Safe File Access Cheat Sheet",
+    "retrieval_date": "2026-10-11",
+    "text": "# OWASP Path Traversal & Safe File Access Cheat Sheet Source: https://owasp.org/www-community/attacks/Path_Traversal Retrieved: 2026-10-12 Author: OWASP Cheat Sheet Series Team Topic: Path Traversal & Safe File Operations"
+  },
+  {
+    "chunk_id": "path-traversal-prevention_1",
+    "document_id": "path-traversal-prevention",
+    "document_title": "OWASP Path Traversal & Safe File Access Cheat Sheet",
+    "url": "https://owasp.org/www-community/attacks/Path_Traversal",
+    "category": "Cheat Sheet",
+    "section": "Introduction",
+    "retrieval_date": "2026-10-11",
+    "text": "## Introduction Path Traversal (also known as Directory Traversal or Dot-Dot-Slash attack) occurs when an application uses user-controllable input to construct file paths without proper sanitization or boundary verification. Attackers exploit this to read or write files outside the intended target directory, accessing sensitive source code, configuration files, system credentials, or overwriting application binaries."
+  },
+  {
+    "chunk_id": "path-traversal-prevention_2",
+    "document_id": "path-traversal-prevention",
+    "document_title": "OWASP Path Traversal & Safe File Access Cheat Sheet",
+    "url": "https://owasp.org/www-community/attacks/Path_Traversal",
+    "category": "Cheat Sheet",
+    "section": "Attack Vectors",
+    "retrieval_date": "2026-10-11",
+    "text": "## Attack Vectors 1. **Dot-Dot-Slash Sequences:** Input containing `../../etc/passwd` or `..\\..\\windows\\system32\\config\\sam`. 2. **URL and Unicode Encoding Bypass:** Patterns like `%2e%2e%2f`, `..%252f`, or null-byte injections (`%00`) in legacy platforms. 3. **Absolute Path Overwrites:** Passing `/etc/shadow` or `C:\\boot.ini` directly into path join methods that overwrite the base root prefix."
+  },
+  {
+    "chunk_id": "path-traversal-prevention_3",
+    "document_id": "path-traversal-prevention",
+    "document_title": "OWASP Path Traversal & Safe File Access Cheat Sheet",
+    "url": "https://owasp.org/www-community/attacks/Path_Traversal",
+    "category": "Cheat Sheet",
+    "section": "Prevention and Defense Techniques",
+    "retrieval_date": "2026-10-11",
+    "text": "## Prevention and Defense Techniques ### 1. Canonicalization and Boundary Verification Always resolve paths to their canonical, absolute representation (`Path.resolve()` in Python or `Path.normalize().toRealPath()` in Java) and verify that the target path begins strictly within the intended base directory. ### Secure Python Implementation from pathlib import Path BASE_STORAGE_DIR = Path(\"/var/app/data/uploads\").resolve() def safe_read_user_file(filename: str) -> bytes: # Reject path separators i"
+  },
+  {
+    "chunk_id": "path-traversal-prevention_4",
+    "document_id": "path-traversal-prevention",
+    "document_title": "OWASP Path Traversal & Safe File Access Cheat Sheet",
+    "url": "https://owasp.org/www-community/attacks/Path_Traversal",
+    "category": "Cheat Sheet",
+    "section": "Prevention and Defense Techniques",
+    "retrieval_date": "2026-10-11",
+    "text": "data/uploads\").resolve() def safe_read_user_file(filename: str) -> bytes: # Reject path separators in bare filenames if \"/\" in filename or \"\\\\\" in filename or \"..\" in filename: raise ValueError(\"Invalid filename structure\") target_file = (BASE_STORAGE_DIR / filename).resolve() # Boundary check: ensure target path is within base storage directory if not target_file.is_relative_to(BASE_STORAGE_DIR): raise PermissionError(\"Path traversal attempt detected\") if not target_file.is_file(): raise FileNo"
+  },
+  {
+    "chunk_id": "path-traversal-prevention_5",
+    "document_id": "path-traversal-prevention",
+    "document_title": "OWASP Path Traversal & Safe File Access Cheat Sheet",
+    "url": "https://owasp.org/www-community/attacks/Path_Traversal",
+    "category": "Cheat Sheet",
+    "section": "Prevention and Defense Techniques",
+    "retrieval_date": "2026-10-11",
+    "text": "raise PermissionError(\"Path traversal attempt detected\") if not target_file.is_file(): raise FileNotFoundError(\"Requested file does not exist\") return target_file.read_bytes() ### Secure Java Implementation import java.nio.file.*; import java.io.IOException; public class FileService { private final Path baseDir = Paths.get(\"/var/app/uploads\").toRealPath(); public byte[] loadFile(String userFilename) throws IOException { Path targetPath = baseDir.resolve(userFilename).normalize().toRealPath(); i"
+  },
+  {
+    "chunk_id": "path-traversal-prevention_6",
+    "document_id": "path-traversal-prevention",
+    "document_title": "OWASP Path Traversal & Safe File Access Cheat Sheet",
+    "url": "https://owasp.org/www-community/attacks/Path_Traversal",
+    "category": "Cheat Sheet",
+    "section": "Prevention and Defense Techniques",
+    "retrieval_date": "2026-10-11",
+    "text": "me) throws IOException { Path targetPath = baseDir.resolve(userFilename).normalize().toRealPath(); if (!targetPath.startsWith(baseDir)) { throw new SecurityException(\"Access outside safe directory boundary prohibited\"); } return Files.readAllBytes(targetPath); } }"
+  },
+  {
+    "chunk_id": "path-traversal-prevention_7",
+    "document_id": "path-traversal-prevention",
+    "document_title": "OWASP Path Traversal & Safe File Access Cheat Sheet",
+    "url": "https://owasp.org/www-community/attacks/Path_Traversal",
+    "category": "Cheat Sheet",
+    "section": "Remediation Guidelines",
+    "retrieval_date": "2026-10-11",
+    "text": "## Remediation Guidelines - Avoid using direct user input to locate files; store file descriptors or GUIDs in a database table mapping to disk paths. - Run the application process under a dedicated non-privileged user account with minimal filesystem read/write privileges."
+  },
+  {
+    "chunk_id": "secrets-management_0",
+    "document_id": "secrets-management",
+    "document_title": "OWASP Secrets Management Cheat Sheet",
+    "url": "https://cheatsheetseries.owasp.org/cheatsheets/Secrets_Management_Cheat_Sheet.html",
+    "category": "Cheat Sheet",
+    "section": "OWASP Secrets Management Cheat Sheet",
+    "retrieval_date": "2026-10-11",
+    "text": "# OWASP Secrets Management Cheat Sheet Source: https://cheatsheetseries.owasp.org/cheatsheets/Secrets_Management_Cheat_Sheet.html Retrieved: 2026-10-11 Author: OWASP Cheat Sheet Series Team"
+  },
+  {
+    "chunk_id": "secrets-management_1",
+    "document_id": "secrets-management",
+    "document_title": "OWASP Secrets Management Cheat Sheet",
+    "url": "https://cheatsheetseries.owasp.org/cheatsheets/Secrets_Management_Cheat_Sheet.html",
+    "category": "Cheat Sheet",
+    "section": "Introduction",
+    "retrieval_date": "2026-10-11",
+    "text": "## Introduction Secrets are credentials, API keys, tokens, private keys, connection strings, passwords, or any sensitive value used by an application to authenticate itself to external services or protect data. Mismanaged secrets are a leading cause of breaches \u2014 exposed secrets in repositories, configuration files, logs, or binary artifacts have resulted in some of the most significant cloud security incidents of the last decade."
+  },
+  {
+    "chunk_id": "secrets-management_2",
+    "document_id": "secrets-management",
+    "document_title": "OWASP Secrets Management Cheat Sheet",
+    "url": "https://cheatsheetseries.owasp.org/cheatsheets/Secrets_Management_Cheat_Sheet.html",
+    "category": "Cheat Sheet",
+    "section": "Core Principles of Secrets Management",
+    "retrieval_date": "2026-10-11",
+    "text": "## Core Principles of Secrets Management ### 1. Never Hardcode Secrets in Source Code Hardcoded secrets in source code violate CWE-798 and OWASP A07:2021 (Identification and Authentication Failures). Source code is frequently committed to version control, shared among teams, decompiled from binaries, or inadvertently exposed. **Vulnerable Java:** // CRITICALLY INSECURE \u2014 extractable by javap/jadx decompiler private static final String AWS_SECRET_KEY = \"AKIAIOSFODNN7EXAMPLE_SECRET\"; private stati"
+  },
+  {
+    "chunk_id": "secrets-management_3",
+    "document_id": "secrets-management",
+    "document_title": "OWASP Secrets Management Cheat Sheet",
+    "url": "https://cheatsheetseries.owasp.org/cheatsheets/Secrets_Management_Cheat_Sheet.html",
+    "category": "Cheat Sheet",
+    "section": "Core Principles of Secrets Management",
+    "retrieval_date": "2026-10-11",
+    "text": "decompiler private static final String AWS_SECRET_KEY = \"AKIAIOSFODNN7EXAMPLE_SECRET\"; private static final String DB_PASSWORD = \"RootAdmin_2026!\"; **Vulnerable Python:** python"
+  },
+  {
+    "chunk_id": "secrets-management_4",
+    "document_id": "secrets-management",
+    "document_title": "OWASP Secrets Management Cheat Sheet",
+    "url": "https://cheatsheetseries.owasp.org/cheatsheets/Secrets_Management_Cheat_Sheet.html",
+    "category": "Cheat Sheet",
+    "section": "CRITICALLY INSECURE \u2014 committed to Git, visible in logs",
+    "retrieval_date": "2026-10-11",
+    "text": "# CRITICALLY INSECURE \u2014 committed to Git, visible in logs API_SECRET_KEY = \"sk-prod-abc123-untrusted-key\" DB_PASS = \"SuperSecretPassword123!\" **Secure Python:** import os API_SECRET_KEY = os.environ.get(\"API_SECRET_KEY\") DB_PASS = os.environ.get(\"DB_PASSWORD\") if not API_SECRET_KEY: raise EnvironmentError(\"API_SECRET_KEY environment variable is not set.\") **Secure Java:** String apiSecretKey = System.getenv(\"API_SECRET_KEY\"); String dbPassword = System.getenv(\"DB_PASSWORD\"); if (apiSecretKey =="
+  },
+  {
+    "chunk_id": "secrets-management_5",
+    "document_id": "secrets-management",
+    "document_title": "OWASP Secrets Management Cheat Sheet",
+    "url": "https://cheatsheetseries.owasp.org/cheatsheets/Secrets_Management_Cheat_Sheet.html",
+    "category": "Cheat Sheet",
+    "section": "CRITICALLY INSECURE \u2014 committed to Git, visible in logs",
+    "retrieval_date": "2026-10-11",
+    "text": "tem.getenv(\"API_SECRET_KEY\"); String dbPassword = System.getenv(\"DB_PASSWORD\"); if (apiSecretKey == null || apiSecretKey.isEmpty()) { throw new IllegalStateException(\"API_SECRET_KEY environment variable is required.\"); } ### 2. Use a Dedicated Secrets Manager Production applications must use a dedicated secrets management system: - **AWS Secrets Manager** \u2014 automatic secret rotation, IAM access control, audit logging. - **HashiCorp Vault** \u2014 open-source, dynamic secrets, lease-based access, supp"
+  },
+  {
+    "chunk_id": "secrets-management_6",
+    "document_id": "secrets-management",
+    "document_title": "OWASP Secrets Management Cheat Sheet",
+    "url": "https://cheatsheetseries.owasp.org/cheatsheets/Secrets_Management_Cheat_Sheet.html",
+    "category": "Cheat Sheet",
+    "section": "CRITICALLY INSECURE \u2014 committed to Git, visible in logs",
+    "retrieval_date": "2026-10-11",
+    "text": "ntrol, audit logging. - **HashiCorp Vault** \u2014 open-source, dynamic secrets, lease-based access, supports K8s, Nomad. - **Azure Key Vault** \u2014 managed secrets, keys, and certificates integrated with Azure AD. - **Google Cloud Secret Manager** \u2014 versioned secrets, IAM-based access, audit trail. - **Kubernetes Secrets** \u2014 base64-encoded (not encrypted by default; enable etcd encryption at rest and use external secret operators like External Secrets Operator). ### 3. Secrets Must Not Appear in Logs I"
+  },
+  {
+    "chunk_id": "secrets-management_7",
+    "document_id": "secrets-management",
+    "document_title": "OWASP Secrets Management Cheat Sheet",
+    "url": "https://cheatsheetseries.owasp.org/cheatsheets/Secrets_Management_Cheat_Sheet.html",
+    "category": "Cheat Sheet",
+    "section": "CRITICALLY INSECURE \u2014 committed to Git, visible in logs",
+    "retrieval_date": "2026-10-11",
+    "text": "external secret operators like External Secrets Operator). ### 3. Secrets Must Not Appear in Logs Implement log sanitization to prevent secrets leaking into log files, error messages, or stack traces. import logging import re class SecretRedactingFilter(logging.Filter): \"\"\"Redact common secret patterns from log records.\"\"\" SECRET_PATTERN = re.compile( r'((?:api[_-]?key|secret|password|token|auth)\\s*[:=]\\s*)[^\\s,\\'\"]{6,}', re.IGNORECASE ) def filter(self, record): record.msg = self.SECRET_PATTER"
+  },
+  {
+    "chunk_id": "secrets-management_8",
+    "document_id": "secrets-management",
+    "document_title": "OWASP Secrets Management Cheat Sheet",
+    "url": "https://cheatsheetseries.owasp.org/cheatsheets/Secrets_Management_Cheat_Sheet.html",
+    "category": "Cheat Sheet",
+    "section": "CRITICALLY INSECURE \u2014 committed to Git, visible in logs",
+    "retrieval_date": "2026-10-11",
+    "text": "\\s*[:=]\\s*)[^\\s,\\'\"]{6,}', re.IGNORECASE ) def filter(self, record): record.msg = self.SECRET_PATTERN.sub(r'\\1[REDACTED]', str(record.msg)) return True ### 4. Rotate Secrets Regularly - Rotate secrets on a defined schedule (e.g., API keys every 90 days, database passwords every 60 days). - Immediately rotate any secret that may have been exposed (repository leak, terminated employee, etc.). - Use short-lived tokens (JWT with short expiry, temporary IAM credentials) where possible to limit the bl"
+  },
+  {
+    "chunk_id": "secrets-management_9",
+    "document_id": "secrets-management",
+    "document_title": "OWASP Secrets Management Cheat Sheet",
+    "url": "https://cheatsheetseries.owasp.org/cheatsheets/Secrets_Management_Cheat_Sheet.html",
+    "category": "Cheat Sheet",
+    "section": "CRITICALLY INSECURE \u2014 committed to Git, visible in logs",
+    "retrieval_date": "2026-10-11",
+    "text": "short-lived tokens (JWT with short expiry, temporary IAM credentials) where possible to limit the blast radius of a leak. ### 5. Restrict Secret Access with Least Privilege - Apply the principle of least privilege: each service or microservice should only have access to the secrets it strictly needs. - Use separate credentials for development, staging, and production environments. - Never share production credentials with developers for local development."
+  },
+  {
+    "chunk_id": "secrets-management_10",
+    "document_id": "secrets-management",
+    "document_title": "OWASP Secrets Management Cheat Sheet",
+    "url": "https://cheatsheetseries.owasp.org/cheatsheets/Secrets_Management_Cheat_Sheet.html",
+    "category": "Cheat Sheet",
+    "section": "Detecting Hardcoded Secrets",
+    "retrieval_date": "2026-10-11",
+    "text": "## Detecting Hardcoded Secrets Use static analysis tools as part of the CI/CD pipeline to automatically detect hardcoded secrets before code is merged: - **truffleHog** \u2014 scans Git history for high-entropy strings and regex-based secrets. - **detect-secrets** \u2014 Yelp's tool; integrates with pre-commit hooks. - **GitGuardian** \u2014 real-time monitoring of GitHub/GitLab commits for secret exposure. - **Semgrep** \u2014 rule-based SAST that supports custom secret patterns."
+  },
+  {
+    "chunk_id": "secrets-management_11",
+    "document_id": "secrets-management",
+    "document_title": "OWASP Secrets Management Cheat Sheet",
+    "url": "https://cheatsheetseries.owasp.org/cheatsheets/Secrets_Management_Cheat_Sheet.html",
+    "category": "Cheat Sheet",
+    "section": "Environment Variable Security",
+    "retrieval_date": "2026-10-11",
+    "text": "## Environment Variable Security When using environment variables: - Set them at the deployment/orchestration layer (e.g., Kubernetes secrets mounted as environment variables, AWS ECS task definitions, Docker secrets). - Never commit `.env` files containing real secrets to version control. Add `.env` to `.gitignore`. - Use `.env.example` (with placeholder values only) as a template."
+  },
+  {
+    "chunk_id": "secrets-management_12",
+    "document_id": "secrets-management",
+    "document_title": "OWASP Secrets Management Cheat Sheet",
+    "url": "https://cheatsheetseries.owasp.org/cheatsheets/Secrets_Management_Cheat_Sheet.html",
+    "category": "Cheat Sheet",
+    "section": "Secret Classification",
+    "retrieval_date": "2026-10-11",
+    "text": "## Secret Classification Classify secrets by sensitivity and handle accordingly: | Secret Type | Example | Storage Method | |---------------------|---------------------------------|---------------------------| | Database passwords | PostgreSQL, MySQL, MongoDB creds | Secrets Manager / env var | | API keys | OpenAI, Stripe, AWS API keys | Secrets Manager / env var | | Private keys | TLS private key, SSH key | Key Vault / HSM | | JWT signing secrets | HS256 secret key | Secrets Manager | | OAuth c"
+  },
+  {
+    "chunk_id": "secrets-management_13",
+    "document_id": "secrets-management",
+    "document_title": "OWASP Secrets Management Cheat Sheet",
+    "url": "https://cheatsheetseries.owasp.org/cheatsheets/Secrets_Management_Cheat_Sheet.html",
+    "category": "Cheat Sheet",
+    "section": "Secret Classification",
+    "retrieval_date": "2026-10-11",
+    "text": ", SSH key | Key Vault / HSM | | JWT signing secrets | HS256 secret key | Secrets Manager | | OAuth client secrets| OAuth 2.0 client_secret | Secrets Manager |"
+  },
+  {
+    "chunk_id": "secrets-management_14",
+    "document_id": "secrets-management",
+    "document_title": "OWASP Secrets Management Cheat Sheet",
+    "url": "https://cheatsheetseries.owasp.org/cheatsheets/Secrets_Management_Cheat_Sheet.html",
+    "category": "Cheat Sheet",
+    "section": "Version Control Hygiene",
+    "retrieval_date": "2026-10-11",
+    "text": "## Version Control Hygiene If a secret has ever been committed to a Git repository, assume it is compromised \u2014 even after removal via `git rm` or `git rebase`. The commit history retains the exposed value. Required remediation steps: 1. Immediately invalidate/rotate the exposed secret. 2. Use `git-filter-repo` or BFG Repo Cleaner to remove the secret from all history. 3. Force-push to all remotes and notify all collaborators to reclone. 4. Audit access logs for the period during which the secret"
+  },
+  {
+    "chunk_id": "secrets-management_15",
+    "document_id": "secrets-management",
+    "document_title": "OWASP Secrets Management Cheat Sheet",
+    "url": "https://cheatsheetseries.owasp.org/cheatsheets/Secrets_Management_Cheat_Sheet.html",
+    "category": "Cheat Sheet",
+    "section": "Version Control Hygiene",
+    "retrieval_date": "2026-10-11",
+    "text": "and notify all collaborators to reclone. 4. Audit access logs for the period during which the secret was exposed."
+  },
+  {
+    "chunk_id": "secure-file-uploads_0",
+    "document_id": "secure-file-uploads",
+    "document_title": "OWASP Secure File Upload Cheat Sheet",
+    "url": "https://cheatsheetseries.owasp.org/cheatsheets/File_Upload_Cheat_Sheet.html",
+    "category": "Cheat Sheet",
+    "section": "OWASP Secure File Upload Cheat Sheet",
+    "retrieval_date": "2026-10-11",
+    "text": "# OWASP Secure File Upload Cheat Sheet Source: https://cheatsheetseries.owasp.org/cheatsheets/File_Upload_Cheat_Sheet.html Retrieved: 2026-10-12 Author: OWASP Cheat Sheet Series Team Topic: Secure File Uploads"
+  },
+  {
+    "chunk_id": "secure-file-uploads_1",
+    "document_id": "secure-file-uploads",
+    "document_title": "OWASP Secure File Upload Cheat Sheet",
+    "url": "https://cheatsheetseries.owasp.org/cheatsheets/File_Upload_Cheat_Sheet.html",
+    "category": "Cheat Sheet",
+    "section": "Introduction",
+    "retrieval_date": "2026-10-11",
+    "text": "## Introduction Allowing users to upload files is a powerful capability but introduces critical risks if files are executed on the host server, stored in publicly accessible paths, or permitted to exhaust server storage resources."
+  },
+  {
+    "chunk_id": "secure-file-uploads_2",
+    "document_id": "secure-file-uploads",
+    "document_title": "OWASP Secure File Upload Cheat Sheet",
+    "url": "https://cheatsheetseries.owasp.org/cheatsheets/File_Upload_Cheat_Sheet.html",
+    "category": "Cheat Sheet",
+    "section": "Vulnerabilities and Threat Scenarios",
+    "retrieval_date": "2026-10-11",
+    "text": "## Vulnerabilities and Threat Scenarios 1. **Remote Code Execution (RCE):** Uploading executable scripts (`.php`, `.jsp`, `.py`, `.exe`, `.cgi`) to web roots where web servers execute them on request. 2. **Denial of Service (DoS):** Uploading excessively large files or decompression bombs (\"zip bombs\") to exhaust server memory or disk storage. 3. **Stored Cross-Site Scripting (XSS):** Uploading HTML, SVG, or PDF files containing malicious JavaScript that executes when viewed in a browser context"
+  },
+  {
+    "chunk_id": "secure-file-uploads_3",
+    "document_id": "secure-file-uploads",
+    "document_title": "OWASP Secure File Upload Cheat Sheet",
+    "url": "https://cheatsheetseries.owasp.org/cheatsheets/File_Upload_Cheat_Sheet.html",
+    "category": "Cheat Sheet",
+    "section": "Vulnerabilities and Threat Scenarios",
+    "retrieval_date": "2026-10-11",
+    "text": "ML, SVG, or PDF files containing malicious JavaScript that executes when viewed in a browser context. 4. **MIME-Type Spoofing:** Supplying a forged `Content-Type: image/jpeg` header for an uploaded binary payload."
+  },
+  {
+    "chunk_id": "secure-file-uploads_4",
+    "document_id": "secure-file-uploads",
+    "document_title": "OWASP Secure File Upload Cheat Sheet",
+    "url": "https://cheatsheetseries.owasp.org/cheatsheets/File_Upload_Cheat_Sheet.html",
+    "category": "Cheat Sheet",
+    "section": "Defense-in-Depth Prevention Controls",
+    "retrieval_date": "2026-10-11",
+    "text": "## Defense-in-Depth Prevention Controls ### 1. File Type and Extension Allow-listing Never rely on blacklists (`.php`, `.exe`). Define an explicit allow-list of safe extensions (`.png`, `.jpg`, `.pdf`). Verify the file magic numbers / binary signature, not merely the filename extension or HTTP `Content-Type` header. ### 2. Randomize Stored Filenames Never store files on disk using the original client-provided filename. Generate an independent random UUID or cryptographically strong identifier. #"
+  },
+  {
+    "chunk_id": "secure-file-uploads_5",
+    "document_id": "secure-file-uploads",
+    "document_title": "OWASP Secure File Upload Cheat Sheet",
+    "url": "https://cheatsheetseries.owasp.org/cheatsheets/File_Upload_Cheat_Sheet.html",
+    "category": "Cheat Sheet",
+    "section": "Defense-in-Depth Prevention Controls",
+    "retrieval_date": "2026-10-11",
+    "text": "ent-provided filename. Generate an independent random UUID or cryptographically strong identifier. ### 3. Store Files Outside the Web Root Store uploaded assets in a dedicated non-executable directory or remote cloud object store (e.g. S3 bucket) with private permissions. ### Secure Python Upload Processing Example import uuid from pathlib import Path from werkzeug.utils import secure_filename ALLOWED_EXTENSIONS = {\".jpg\", \".jpeg\", \".png\", \".pdf\"} MAX_FILE_SIZE = 5 * 1024 * 1024 # 5 MB STORAGE_D"
+  },
+  {
+    "chunk_id": "secure-file-uploads_6",
+    "document_id": "secure-file-uploads",
+    "document_title": "OWASP Secure File Upload Cheat Sheet",
+    "url": "https://cheatsheetseries.owasp.org/cheatsheets/File_Upload_Cheat_Sheet.html",
+    "category": "Cheat Sheet",
+    "section": "Defense-in-Depth Prevention Controls",
+    "retrieval_date": "2026-10-11",
+    "text": "OWED_EXTENSIONS = {\".jpg\", \".jpeg\", \".png\", \".pdf\"} MAX_FILE_SIZE = 5 * 1024 * 1024 # 5 MB STORAGE_DIR = Path(\"/var/app/storage/uploads\").resolve() def process_secure_upload(file_storage) -> str: original_name = secure_filename(file_storage.filename) suffix = Path(original_name).suffix.lower() if suffix not in ALLOWED_EXTENSIONS: raise ValueError(\"Unsupported or forbidden file format\") # Read and enforce size limit content = file_storage.read(MAX_FILE_SIZE + 1) if len(content) > MAX_FILE_SIZE: r"
+  },
+  {
+    "chunk_id": "secure-file-uploads_7",
+    "document_id": "secure-file-uploads",
+    "document_title": "OWASP Secure File Upload Cheat Sheet",
+    "url": "https://cheatsheetseries.owasp.org/cheatsheets/File_Upload_Cheat_Sheet.html",
+    "category": "Cheat Sheet",
+    "section": "Defense-in-Depth Prevention Controls",
+    "retrieval_date": "2026-10-11",
+    "text": "enforce size limit content = file_storage.read(MAX_FILE_SIZE + 1) if len(content) > MAX_FILE_SIZE: raise ValueError(\"File exceeds maximum allowed size (5MB)\") # Save under random UUID unique_name = f\"{uuid.uuid4().hex}{suffix}\" dest_path = (STORAGE_DIR / unique_name).resolve() dest_path.write_bytes(content) return unique_name"
+  },
+  {
+    "chunk_id": "secure-file-uploads_8",
+    "document_id": "secure-file-uploads",
+    "document_title": "OWASP Secure File Upload Cheat Sheet",
+    "url": "https://cheatsheetseries.owasp.org/cheatsheets/File_Upload_Cheat_Sheet.html",
+    "category": "Cheat Sheet",
+    "section": "Remediation Checklist",
+    "retrieval_date": "2026-10-11",
+    "text": "## Remediation Checklist - Serve user uploads with `Content-Disposition: attachment` and `X-Content-Type-Options: nosniff` to prevent browser script execution. - Set strict filesystem permissions (`chmod 0640`) on uploaded files and mount the upload folder with the `noexec` flag."
+  },
+  {
+    "chunk_id": "security-misconfiguration_0",
+    "document_id": "security-misconfiguration",
+    "document_title": "OWASP Security Misconfiguration Cheat Sheet",
+    "url": "https://owasp.org/Top10/A05_2021-Security_Misconfiguration/",
+    "category": "Standard",
+    "section": "OWASP Security Misconfiguration Prevention Cheat Sheet",
+    "retrieval_date": "2026-10-11",
+    "text": "# OWASP Security Misconfiguration Prevention Cheat Sheet Source: https://owasp.org/Top10/A05_2021-Security_Misconfiguration/ Retrieved: 2026-10-12 Author: OWASP Top 10 Team Topic: Security Misconfiguration & Hardening"
+  },
+  {
+    "chunk_id": "security-misconfiguration_1",
+    "document_id": "security-misconfiguration",
+    "document_title": "OWASP Security Misconfiguration Cheat Sheet",
+    "url": "https://owasp.org/Top10/A05_2021-Security_Misconfiguration/",
+    "category": "Standard",
+    "section": "Introduction",
+    "retrieval_date": "2026-10-11",
+    "text": "## Introduction Security misconfiguration is commonly found in web applications where developers or system administrators fail to implement secure configuration defaults across all layers of the application stack, including network services, web servers, databases, and application runtimes."
+  },
+  {
+    "chunk_id": "security-misconfiguration_2",
+    "document_id": "security-misconfiguration",
+    "document_title": "OWASP Security Misconfiguration Cheat Sheet",
+    "url": "https://owasp.org/Top10/A05_2021-Security_Misconfiguration/",
+    "category": "Standard",
+    "section": "Attack Scenarios and High-Risk Patterns",
+    "retrieval_date": "2026-10-11",
+    "text": "## Attack Scenarios and High-Risk Patterns 1. **Enabled Debug Mode in Production:** Running frameworks with `debug=True` (e.g., Flask Werkzeug interactive debugger, Django DEBUG mode, or Spring Boot DevTools) exposes interactive consoles, secret keys, environment variables, and full stack traces. 2. **Default Accounts and Unchanged Passwords:** Deploying databases, message queues, or administrative panels with default passwords enabled. 3. **Missing Security Headers:** Failing to emit modern bro"
+  },
+  {
+    "chunk_id": "security-misconfiguration_3",
+    "document_id": "security-misconfiguration",
+    "document_title": "OWASP Security Misconfiguration Cheat Sheet",
+    "url": "https://owasp.org/Top10/A05_2021-Security_Misconfiguration/",
+    "category": "Standard",
+    "section": "Attack Scenarios and High-Risk Patterns",
+    "retrieval_date": "2026-10-11",
+    "text": "e panels with default passwords enabled. 3. **Missing Security Headers:** Failing to emit modern browser security headers allows cross-origin data theft, MIME confusion attacks, and clickjacking. 4. **Directory Listing Enabled:** Web servers serving directory indexes when default index files are missing, exposing sensitive source files and backups."
+  },
+  {
+    "chunk_id": "security-misconfiguration_4",
+    "document_id": "security-misconfiguration",
+    "document_title": "OWASP Security Misconfiguration Cheat Sheet",
+    "url": "https://owasp.org/Top10/A05_2021-Security_Misconfiguration/",
+    "category": "Standard",
+    "section": "Hardening Guidance & Mitigation",
+    "retrieval_date": "2026-10-11",
+    "text": "## Hardening Guidance & Mitigation ### 1. Disable Debug Runtimes in Production Ensure production entry points strictly read boolean flags from verified environment variables and default to safe production configurations. import os"
+  },
+  {
+    "chunk_id": "security-misconfiguration_5",
+    "document_id": "security-misconfiguration",
+    "document_title": "OWASP Security Misconfiguration Cheat Sheet",
+    "url": "https://owasp.org/Top10/A05_2021-Security_Misconfiguration/",
+    "category": "Standard",
+    "section": "Unsafe:",
+    "retrieval_date": "2026-10-11",
+    "text": "# Unsafe:"
+  },
+  {
+    "chunk_id": "security-misconfiguration_6",
+    "document_id": "security-misconfiguration",
+    "document_title": "OWASP Security Misconfiguration Cheat Sheet",
+    "url": "https://owasp.org/Top10/A05_2021-Security_Misconfiguration/",
+    "category": "Standard",
+    "section": "app.run(debug=True)",
+    "retrieval_date": "2026-10-11",
+    "text": "# app.run(debug=True)"
+  },
+  {
+    "chunk_id": "security-misconfiguration_7",
+    "document_id": "security-misconfiguration",
+    "document_title": "OWASP Security Misconfiguration Cheat Sheet",
+    "url": "https://owasp.org/Top10/A05_2021-Security_Misconfiguration/",
+    "category": "Standard",
+    "section": "Safe:",
+    "retrieval_date": "2026-10-11",
+    "text": "# Safe: FLASK_DEBUG = os.getenv(\"FLASK_DEBUG\", \"0\") == \"1\" app.run(host=\"127.0.0.1\", port=5000, debug=FLASK_DEBUG) ### 2. Implement Essential HTTP Security Headers All API and web responses should include: - `Content-Security-Policy: default-src 'self'` - `X-Frame-Options: DENY` - `X-Content-Type-Options: nosniff` - `Strict-Transport-Security: max-age=31536000; includeSubDomains` - `Referrer-Policy: strict-origin-when-cross-origin` ### 3. Automated Hardening Checklist - Remove unused features, e"
+  },
+  {
+    "chunk_id": "security-misconfiguration_8",
+    "document_id": "security-misconfiguration",
+    "document_title": "OWASP Security Misconfiguration Cheat Sheet",
+    "url": "https://owasp.org/Top10/A05_2021-Security_Misconfiguration/",
+    "category": "Standard",
+    "section": "Safe:",
+    "retrieval_date": "2026-10-11",
+    "text": "y: strict-origin-when-cross-origin` ### 3. Automated Hardening Checklist - Remove unused features, endpoints, sample files, and documentation in production builds. - Configure error handlers to return generic error identifiers without internal system disclosures. - Regularly audit cloud buckets (AWS S3, GCP Buckets) for accidental public read permissions."
+  },
+  {
+    "chunk_id": "sql-injection-prevention_0",
+    "document_id": "sql-injection-prevention",
+    "document_title": "OWASP SQL Injection Prevention Cheat Sheet",
+    "url": "https://cheatsheetseries.owasp.org/cheatsheets/SQL_Injection_Prevention_Cheat_Sheet.html",
+    "category": "Cheat Sheet",
+    "section": "OWASP SQL Injection Prevention Cheat Sheet",
+    "retrieval_date": "2026-10-11",
+    "text": "# OWASP SQL Injection Prevention Cheat Sheet Source: https://cheatsheetseries.owasp.org/cheatsheets/SQL_Injection_Prevention_Cheat_Sheet.html Retrieved: 2026-10-11 Author: OWASP Cheat Sheet Series Team"
+  },
+  {
+    "chunk_id": "sql-injection-prevention_1",
+    "document_id": "sql-injection-prevention",
+    "document_title": "OWASP SQL Injection Prevention Cheat Sheet",
+    "url": "https://cheatsheetseries.owasp.org/cheatsheets/SQL_Injection_Prevention_Cheat_Sheet.html",
+    "category": "Cheat Sheet",
+    "section": "Introduction",
+    "retrieval_date": "2026-10-11",
+    "text": "## Introduction SQL Injection (SQLi) is an injection attack wherein an attacker executes malicious SQL statements that control a database server behind a web application. Attackers use SQL injection vulnerabilities to bypass application security measures, authenticate as an administrator, access, modify, or delete sensitive data, and in some cases execute operating system commands."
+  },
+  {
+    "chunk_id": "sql-injection-prevention_2",
+    "document_id": "sql-injection-prevention",
+    "document_title": "OWASP SQL Injection Prevention Cheat Sheet",
+    "url": "https://cheatsheetseries.owasp.org/cheatsheets/SQL_Injection_Prevention_Cheat_Sheet.html",
+    "category": "Cheat Sheet",
+    "section": "Primary Defense: Use Parameterized Queries (Prepared Statements)",
+    "retrieval_date": "2026-10-11",
+    "text": "## Primary Defense: Use Parameterized Queries (Prepared Statements) Prepared statements ensure that an attacker cannot change the intent of a query, even if SQL commands are inserted by an untrusted source. When an application uses a prepared statement, the database compiles the SQL statement template first, and then binds user input parameters safely to the execution plan without interpreting user data as executable SQL commands. ### Java Implementation In Java, use `PreparedStatement` with bin"
+  },
+  {
+    "chunk_id": "sql-injection-prevention_3",
+    "document_id": "sql-injection-prevention",
+    "document_title": "OWASP SQL Injection Prevention Cheat Sheet",
+    "url": "https://cheatsheetseries.owasp.org/cheatsheets/SQL_Injection_Prevention_Cheat_Sheet.html",
+    "category": "Cheat Sheet",
+    "section": "Primary Defense: Use Parameterized Queries (Prepared Statements)",
+    "retrieval_date": "2026-10-11",
+    "text": "r data as executable SQL commands. ### Java Implementation In Java, use `PreparedStatement` with bind variables: String selectUserQuery = \"SELECT id, username, email FROM users WHERE username = ? AND status = ?\"; PreparedStatement pstmt = connection.prepareStatement(selectUserQuery); pstmt.setString(1, userSuppliedUsername); pstmt.setString(2, \"ACTIVE\"); ResultSet results = pstmt.executeQuery(); Never concatenate strings or user variables directly into the query string passed to `connection.prep"
+  },
+  {
+    "chunk_id": "sql-injection-prevention_4",
+    "document_id": "sql-injection-prevention",
+    "document_title": "OWASP SQL Injection Prevention Cheat Sheet",
+    "url": "https://cheatsheetseries.owasp.org/cheatsheets/SQL_Injection_Prevention_Cheat_Sheet.html",
+    "category": "Cheat Sheet",
+    "section": "Primary Defense: Use Parameterized Queries (Prepared Statements)",
+    "retrieval_date": "2026-10-11",
+    "text": "ever concatenate strings or user variables directly into the query string passed to `connection.prepareStatement()` or `statement.executeQuery()`. ### Python Implementation In Python DB-API compliant drivers (e.g., sqlite3, psycopg2, mysql-connector): python"
+  },
+  {
+    "chunk_id": "sql-injection-prevention_5",
+    "document_id": "sql-injection-prevention",
+    "document_title": "OWASP SQL Injection Prevention Cheat Sheet",
+    "url": "https://cheatsheetseries.owasp.org/cheatsheets/SQL_Injection_Prevention_Cheat_Sheet.html",
+    "category": "Cheat Sheet",
+    "section": "SAFE: parameterized query with placeholder tuple",
+    "retrieval_date": "2026-10-11",
+    "text": "# SAFE: parameterized query with placeholder tuple cursor.execute(\"SELECT id, username FROM users WHERE username = %s AND status = %s\", (username, status)) Never use f-strings, `%` formatting, or string concatenation: python"
+  },
+  {
+    "chunk_id": "sql-injection-prevention_6",
+    "document_id": "sql-injection-prevention",
+    "document_title": "OWASP SQL Injection Prevention Cheat Sheet",
+    "url": "https://cheatsheetseries.owasp.org/cheatsheets/SQL_Injection_Prevention_Cheat_Sheet.html",
+    "category": "Cheat Sheet",
+    "section": "VULNERABLE:",
+    "retrieval_date": "2026-10-11",
+    "text": "# VULNERABLE: cursor.execute(f\"SELECT * FROM users WHERE username = '{username}'\") # SQL Injection!"
+  },
+  {
+    "chunk_id": "sql-injection-prevention_7",
+    "document_id": "sql-injection-prevention",
+    "document_title": "OWASP SQL Injection Prevention Cheat Sheet",
+    "url": "https://cheatsheetseries.owasp.org/cheatsheets/SQL_Injection_Prevention_Cheat_Sheet.html",
+    "category": "Cheat Sheet",
+    "section": "Secondary Defense: Stored Procedures",
+    "retrieval_date": "2026-10-11",
+    "text": "## Secondary Defense: Stored Procedures Stored procedures can protect against SQL injection when implemented safely. The stored procedure itself must parameterize arguments internally rather than generating dynamic SQL strings with concatenation inside the procedure."
+  },
+  {
+    "chunk_id": "sql-injection-prevention_8",
+    "document_id": "sql-injection-prevention",
+    "document_title": "OWASP SQL Injection Prevention Cheat Sheet",
+    "url": "https://cheatsheetseries.owasp.org/cheatsheets/SQL_Injection_Prevention_Cheat_Sheet.html",
+    "category": "Cheat Sheet",
+    "section": "Defense: Allow-list Input Validation",
+    "retrieval_date": "2026-10-11",
+    "text": "## Defense: Allow-list Input Validation When parameterization is impossible\u2014such as when table names, column names, or sort orders (ASC/DESC) must be chosen dynamically\u2014use a strict allow-list of authorized identifiers. Reject any input that does not match an exact known safe constant."
+  },
+  {
+    "chunk_id": "ssrf-prevention_0",
+    "document_id": "ssrf-prevention",
+    "document_title": "OWASP Server-Side Request Forgery Prevention Cheat Sheet",
+    "url": "https://cheatsheetseries.owasp.org/cheatsheets/Server_Side_Request_Forgery_Prevention_Cheat_Sheet.html",
+    "category": "Cheat Sheet",
+    "section": "OWASP Server-Side Request Forgery (SSRF) Prevention Cheat Sheet",
+    "retrieval_date": "2026-10-11",
+    "text": "# OWASP Server-Side Request Forgery (SSRF) Prevention Cheat Sheet Source: https://cheatsheetseries.owasp.org/cheatsheets/Server_Side_Request_Forgery_Prevention_Cheat_Sheet.html Retrieved: 2026-10-12 Author: OWASP Cheat Sheet Series Team Topic: Server-Side Request Forgery (SSRF)"
+  },
+  {
+    "chunk_id": "ssrf-prevention_1",
+    "document_id": "ssrf-prevention",
+    "document_title": "OWASP Server-Side Request Forgery Prevention Cheat Sheet",
+    "url": "https://cheatsheetseries.owasp.org/cheatsheets/Server_Side_Request_Forgery_Prevention_Cheat_Sheet.html",
+    "category": "Cheat Sheet",
+    "section": "Introduction",
+    "retrieval_date": "2026-10-11",
+    "text": "## Introduction Server-Side Request Forgery (SSRF) occurs when a web application fetches a remote resource without validating the user-supplied URL. An attacker can coerce the application to send crafted requests to unexpected destinations, typically bypassing network firewalls to target internal cloud metadata services, loopback interfaces, or intranets."
+  },
+  {
+    "chunk_id": "ssrf-prevention_2",
+    "document_id": "ssrf-prevention",
+    "document_title": "OWASP Server-Side Request Forgery Prevention Cheat Sheet",
+    "url": "https://cheatsheetseries.owasp.org/cheatsheets/Server_Side_Request_Forgery_Prevention_Cheat_Sheet.html",
+    "category": "Cheat Sheet",
+    "section": "Attack Scenarios",
+    "retrieval_date": "2026-10-11",
+    "text": "## Attack Scenarios 1. **Cloud Metadata Exploitation:** An attacker submits `http://169.254.169.254/latest/meta-data/iam/security-credentials/` to harvest cloud infrastructure keys. 2. **Internal Port Scanning & Service Pivoting:** Probing internal services running on `http://127.0.0.1:8080`, `http://localhost:6379` (Redis), or internal microservices that assume trusted intranet boundaries. 3. **Protocol Smuggling:** Supplying schemes like `file:///etc/passwd`, `gopher://`, or `dict://` where HT"
+  },
+  {
+    "chunk_id": "ssrf-prevention_3",
+    "document_id": "ssrf-prevention",
+    "document_title": "OWASP Server-Side Request Forgery Prevention Cheat Sheet",
+    "url": "https://cheatsheetseries.owasp.org/cheatsheets/Server_Side_Request_Forgery_Prevention_Cheat_Sheet.html",
+    "category": "Cheat Sheet",
+    "section": "Attack Scenarios",
+    "retrieval_date": "2026-10-11",
+    "text": "rotocol Smuggling:** Supplying schemes like `file:///etc/passwd`, `gopher://`, or `dict://` where HTTP libraries allow alternate URL schemes."
+  },
+  {
+    "chunk_id": "ssrf-prevention_4",
+    "document_id": "ssrf-prevention",
+    "document_title": "OWASP Server-Side Request Forgery Prevention Cheat Sheet",
+    "url": "https://cheatsheetseries.owasp.org/cheatsheets/Server_Side_Request_Forgery_Prevention_Cheat_Sheet.html",
+    "category": "Cheat Sheet",
+    "section": "Prevention & Defense Strategies",
+    "retrieval_date": "2026-10-11",
+    "text": "## Prevention & Defense Strategies ### 1. Enforce Strict Allow-lists for Domains and Schemes Only permit explicitly approved domain names and HTTP/HTTPS schemes. Never accept raw arbitrary user URLs directly. ### 2. Validate IP Addresses and Block Private CIDR Blocks Before making an outbound request, resolve the domain to its IPv4/IPv6 address and verify it does not fall into private, loopback, or link-local ranges: - `127.0.0.0/8` (Loopback) - `10.0.0.0/8`, `172.16.0.0/12`, `192.168.0.0/16` (P"
+  },
+  {
+    "chunk_id": "ssrf-prevention_5",
+    "document_id": "ssrf-prevention",
+    "document_title": "OWASP Server-Side Request Forgery Prevention Cheat Sheet",
+    "url": "https://cheatsheetseries.owasp.org/cheatsheets/Server_Side_Request_Forgery_Prevention_Cheat_Sheet.html",
+    "category": "Cheat Sheet",
+    "section": "Prevention & Defense Strategies",
+    "retrieval_date": "2026-10-11",
+    "text": "r link-local ranges: - `127.0.0.0/8` (Loopback) - `10.0.0.0/8`, `172.16.0.0/12`, `192.168.0.0/16` (Private networks RFC 1918) - `169.254.0.0/16` (Link-local / Cloud metadata) - `::1`, `fc00::/7`, `fe80::/10` (IPv6 Private / Link-local) ### Secure Python Validation Pattern import ipaddress import socket from urllib.parse import urlparse def is_safe_external_url(url: str, allowed_schemes={\"https\"}) -> bool: parsed = urlparse(url) if parsed.scheme not in allowed_schemes: return False hostname = par"
+  },
+  {
+    "chunk_id": "ssrf-prevention_6",
+    "document_id": "ssrf-prevention",
+    "document_title": "OWASP Server-Side Request Forgery Prevention Cheat Sheet",
+    "url": "https://cheatsheetseries.owasp.org/cheatsheets/Server_Side_Request_Forgery_Prevention_Cheat_Sheet.html",
+    "category": "Cheat Sheet",
+    "section": "Prevention & Defense Strategies",
+    "retrieval_date": "2026-10-11",
+    "text": "-> bool: parsed = urlparse(url) if parsed.scheme not in allowed_schemes: return False hostname = parsed.hostname if not hostname: return False try: # Resolve all addresses addr_info = socket.getaddrinfo(hostname, None) for family, _, _, _, sockaddr in addr_info: ip = ipaddress.ip_address(sockaddr[0]) if ip.is_private or ip.is_loopback or ip.is_link_local or ip.is_reserved: return False return True except (socket.gaierror, ValueError): return False"
+  },
+  {
+    "chunk_id": "ssrf-prevention_7",
+    "document_id": "ssrf-prevention",
+    "document_title": "OWASP Server-Side Request Forgery Prevention Cheat Sheet",
+    "url": "https://cheatsheetseries.owasp.org/cheatsheets/Server_Side_Request_Forgery_Prevention_Cheat_Sheet.html",
+    "category": "Cheat Sheet",
+    "section": "Remediation Checklist",
+    "retrieval_date": "2026-10-11",
+    "text": "## Remediation Checklist - Disable HTTP redirects or re-validate redirect target URLs prior to following them. - Restrict outbound egress traffic at the firewall or network security group layer."
+  },
+  {
+    "chunk_id": "xss-prevention_0",
+    "document_id": "xss-prevention",
+    "document_title": "OWASP Cross Site Scripting Prevention Cheat Sheet",
+    "url": "https://cheatsheetseries.owasp.org/cheatsheets/Cross_Site_Scripting_Prevention_Cheat_Sheet.html",
+    "category": "Cheat Sheet",
+    "section": "OWASP Cross-Site Scripting (XSS) Prevention Cheat Sheet",
+    "retrieval_date": "2026-10-11",
+    "text": "# OWASP Cross-Site Scripting (XSS) Prevention Cheat Sheet Source: https://cheatsheetseries.owasp.org/cheatsheets/Cross_Site_Scripting_Prevention_Cheat_Sheet.html Retrieved: 2026-10-11 Author: OWASP Cheat Sheet Series Team"
+  },
+  {
+    "chunk_id": "xss-prevention_1",
+    "document_id": "xss-prevention",
+    "document_title": "OWASP Cross Site Scripting Prevention Cheat Sheet",
+    "url": "https://cheatsheetseries.owasp.org/cheatsheets/Cross_Site_Scripting_Prevention_Cheat_Sheet.html",
+    "category": "Cheat Sheet",
+    "section": "Introduction",
+    "retrieval_date": "2026-10-11",
+    "text": "## Introduction Cross-Site Scripting (XSS) is a type of injection attack in which malicious scripts are injected into otherwise benign and trusted websites. XSS attacks occur when an attacker uses a web application to send malicious code, generally in the form of a browser side script, to a different end user."
+  },
+  {
+    "chunk_id": "xss-prevention_2",
+    "document_id": "xss-prevention",
+    "document_title": "OWASP Cross Site Scripting Prevention Cheat Sheet",
+    "url": "https://cheatsheetseries.owasp.org/cheatsheets/Cross_Site_Scripting_Prevention_Cheat_Sheet.html",
+    "category": "Cheat Sheet",
+    "section": "Types of XSS",
+    "retrieval_date": "2026-10-11",
+    "text": "## Types of XSS - **Stored XSS:** The malicious input is permanently stored on the target servers (e.g. database, comment field, forum post) and delivered to victims when requesting the stored information. - **Reflected XSS:** The malicious payload is reflected off a web application into the user's browser via error messages, search results, or URL parameters. - **DOM-based XSS:** The vulnerability exists in client-side code rather than server-side code, where client JavaScript reads data from a"
+  },
+  {
+    "chunk_id": "xss-prevention_3",
+    "document_id": "xss-prevention",
+    "document_title": "OWASP Cross Site Scripting Prevention Cheat Sheet",
+    "url": "https://cheatsheetseries.owasp.org/cheatsheets/Cross_Site_Scripting_Prevention_Cheat_Sheet.html",
+    "category": "Cheat Sheet",
+    "section": "Types of XSS",
+    "retrieval_date": "2026-10-11",
+    "text": "y exists in client-side code rather than server-side code, where client JavaScript reads data from an untrusted source (like `location.search` or `document.URL`) and writes it to an execution sink (like `innerHTML` or `document.write`)."
+  },
+  {
+    "chunk_id": "xss-prevention_4",
+    "document_id": "xss-prevention",
+    "document_title": "OWASP Cross Site Scripting Prevention Cheat Sheet",
+    "url": "https://cheatsheetseries.owasp.org/cheatsheets/Cross_Site_Scripting_Prevention_Cheat_Sheet.html",
+    "category": "Cheat Sheet",
+    "section": "Framework Security and Context-Aware Encoding",
+    "retrieval_date": "2026-10-11",
+    "text": "## Framework Security and Context-Aware Encoding Modern web frameworks (e.g. React, Angular, Vue) automatically encode variables in templates by default, neutralizing most classic reflected and stored XSS vectors. For example, JSX in React automatically escapes strings before rendering them to the DOM: // SAFE in React: automatically escaped {untrustedUserInput} However, using unsafe sinks bypasses framework protections: // VULNERABLE in React:"
+  },
+  {
+    "chunk_id": "xss-prevention_5",
+    "document_id": "xss-prevention",
+    "document_title": "OWASP Cross Site Scripting Prevention Cheat Sheet",
+    "url": "https://cheatsheetseries.owasp.org/cheatsheets/Cross_Site_Scripting_Prevention_Cheat_Sheet.html",
+    "category": "Cheat Sheet",
+    "section": "Content Security Policy (CSP)",
+    "retrieval_date": "2026-10-11",
+    "text": "## Content Security Policy (CSP) Implement a robust Content Security Policy (CSP) HTTP response header. CSP provides defense-in-depth by restricting where scripts can be loaded from and disabling the execution of inline scripts (`unsafe-inline`) and `eval()`."
+  }
+]
