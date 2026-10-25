@@ -113,3 +113,19 @@ def test_reports_pdf_endpoint(client):
     assert res.content_type == "application/pdf"
     # PDF magic header is %PDF-
     assert res.data.startswith(b"%PDF-")
+
+
+def test_orchestrate_endpoint(client):
+    payload = {
+        "language": "python",
+        "source_code": "eval('secret')\nAPI_KEY = 'AKIA1234567890123456'\n"
+    }
+    res = client.post("/api/orchestrate", json=payload)
+    assert res.status_code == 200
+    data = res.get_json()
+    assert "findings" in data
+    assert "summary" in data
+    assert "orchestration" in data
+    assert data["orchestration"]["parallel_execution"] is True
+    assert len(data["findings"]) > 0
+

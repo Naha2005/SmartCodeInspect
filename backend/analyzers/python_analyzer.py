@@ -2,10 +2,11 @@ from typing import Dict, Any, Optional
 
 try:
     from validators.python_validator import validate_python_source
-    from analyzers.rules.python_rules import PythonSecurityVisitor
 except ImportError:
-    from ..validators.python_validator import validate_python_source
-    from .rules.python_rules import PythonSecurityVisitor
+    try:
+        from backend.validators.python_validator import validate_python_source
+    except ImportError:
+        from ..validators.python_validator import validate_python_source
 
 
 def analyze_python_source(
@@ -14,8 +15,9 @@ def analyze_python_source(
     max_bytes: int = 200000
 ) -> Dict[str, Any]:
     """
-    Perform full syntax validation followed by static security rule analysis on Python code.
-    Only executes deterministic security analysis after successful AST parsing.
+    Perform full syntax validation followed by parallel multi-agent static analysis on Python code.
+    Executes Code Analysis Agent and Security Vulnerability Agent concurrently, merging
+    their findings into a unified registry with composite quality and security metrics.
     """
     validation_result = validate_python_source(source_code, filename=filename, max_bytes=max_bytes)
 
@@ -33,19 +35,39 @@ def analyze_python_source(
                 "high": 0,
                 "medium": 0,
                 "low": 0,
-                "informational": 0
+                "informational": 0,
+                "security_findings_count": 0,
+                "code_quality_findings_count": 0,
+                "average_severity_score": 0.0,
+                "code_quality_score": 0,
+                "security_posture": "N/A (Syntax Error)"
+            },
+            "orchestration": {
+                "parallel_execution": False,
+                "agents": {}
             },
             "total_lines": validation_result.get("total_lines", 0),
             "total_bytes": validation_result.get("total_bytes", 0)
         }
 
-    parsed_ast = validation_result.get("parsed_ast")
-    source_lines = source_code.splitlines() if isinstance(source_code, str) else []
-
     try:
-        visitor = PythonSecurityVisitor(source_lines=source_lines)
-        visitor.visit(parsed_ast)
-        findings = [f.to_dict() for f in visitor.findings]
+        try:
+            from agents.orchestrator import get_orchestrator
+        except ImportError:
+            try:
+                from backend.agents.orchestrator import get_orchestrator
+            except ImportError:
+                from ..agents.orchestrator import get_orchestrator
+
+        orchestrator = get_orchestrator()
+        orchestration_result = orchestrator.run_parallel_analysis(
+            source_code=source_code,
+            language="python",
+            filename=filename
+        )
+        findings = orchestration_result["findings"]
+        summary = orchestration_result["summary"]
+        orchestration = orchestration_result["orchestration"]
     except Exception as exc:
         return {
             "language": "python",
@@ -55,9 +77,9 @@ def analyze_python_source(
                 "line": 1,
                 "column": 0,
                 "severity": "error",
-                "message": f"Rule evaluation error: {str(exc)}"
+                "message": f"Multi-agent inspection error: {str(exc)}"
             }],
-            "message": f"Inspection rule evaluation failed: {str(exc)}",
+            "message": f"Multi-agent inspection execution failed: {str(exc)}",
             "findings": [],
             "summary": {
                 "total_findings": 0,
@@ -65,29 +87,38 @@ def analyze_python_source(
                 "high": 0,
                 "medium": 0,
                 "low": 0,
-                "informational": 0
+                "informational": 0,
+                "security_findings_count": 0,
+                "code_quality_findings_count": 0,
+                "average_severity_score": 0.0,
+                "code_quality_score": 0,
+                "security_posture": "Error"
+            },
+            "orchestration": {
+                "parallel_execution": False,
+                "errors": [str(exc)]
             },
             "total_lines": validation_result.get("total_lines", 0),
             "total_bytes": validation_result.get("total_bytes", 0)
         }
 
-    summary = {
-        "total_findings": len(findings),
-        "critical": sum(1 for f in findings if f["severity"] == "Critical"),
-        "high": sum(1 for f in findings if f["severity"] == "High"),
-        "medium": sum(1 for f in findings if f["severity"] == "Medium"),
-        "low": sum(1 for f in findings if f["severity"] == "Low"),
-        "informational": sum(1 for f in findings if f["severity"] == "Informational")
-    }
+    sec_count = summary.get("security_findings_count", 0)
+    qual_count = summary.get("code_quality_findings_count", 0)
+    msg = (
+        f"Syntax valid. Multi-agent analysis completed with {len(findings)} finding(s) "
+        f"(Security: {sec_count}, Code Quality: {qual_count})."
+    )
 
     return {
         "language": "python",
         "valid_syntax": True,
         "filename": validation_result.get("filename", filename or "untitled.py"),
         "diagnostics": validation_result.get("diagnostics", []),
-        "message": f"Syntax valid. Security analysis completed with {len(findings)} finding(s).",
+        "message": msg,
         "findings": findings,
         "summary": summary,
+        "orchestration": orchestration,
         "total_lines": validation_result.get("total_lines", 0),
         "total_bytes": validation_result.get("total_bytes", 0)
     }
+

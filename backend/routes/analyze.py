@@ -76,3 +76,48 @@ def analyze_code():
                 "informational": 0
             }
         }), 200
+
+
+@analyze_bp.route("/orchestrate", methods=["POST"])
+def orchestrate_code():
+    """
+    Execute parallel multi-agent analysis:
+    - Code Analysis Agent (code smells, complexity, anti-patterns, quality metrics)
+    - Security Vulnerability Agent (OWASP standards, CWEs, location-specific flagging)
+    Merges outputs into a unified deduplicated findings list with security grading and quality score.
+    """
+    payload = request.get_json(silent=True)
+    if not isinstance(payload, dict):
+        return jsonify({
+            "error": "Invalid request: Expected JSON object.",
+            "findings": []
+        }), 400
+
+    language = payload.get("language", "").strip().lower()
+    source_code = payload.get("source_code", "")
+
+    if language not in ("python", "java"):
+        return jsonify({
+            "error": f"Unsupported language '{language}'. Supported languages are 'python' and 'java'.",
+            "findings": []
+        }), 400
+
+    try:
+        try:
+            from agents.orchestrator import MultiAgentOrchestrator
+        except ImportError:
+            from ..agents.orchestrator import MultiAgentOrchestrator
+
+        orchestrator = MultiAgentOrchestrator()
+        result = orchestrator.run_parallel_analysis(
+            source_code=source_code,
+            language=language
+        )
+        return jsonify(result), 200
+    except Exception as exc:
+        return jsonify({
+            "error": f"Multi-agent orchestration failed: {str(exc)}",
+            "findings": [],
+            "summary": {}
+        }), 500
+

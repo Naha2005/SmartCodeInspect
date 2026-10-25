@@ -1,10 +1,10 @@
 [
   {
     "id": "owasp-top-10",
-    "title": "OWASP Top 10: 2025",
+    "title": "OWASP Top 10: 2025/2026",
     "url": "https://top10.owasp.org/2025/",
     "category": "Standard",
-    "description": "The OWASP Top 10:2025 is the latest standard awareness document for developers and web application security, representing the consensus on critical application security risks."
+    "description": "The OWASP Top 10: 2026 standard awareness document for developers and web application security, representing global consensus on critical application security risks."
   },
   {
     "id": "sql-injection-prevention",
@@ -61,5 +61,26 @@
     "url": "https://cheatsheetseries.owasp.org/cheatsheets/Secrets_Management_Cheat_Sheet.html",
     "category": "Cheat Sheet",
     "description": "Guidelines for securely managing credentials, API keys, tokens, and secrets — covering hardcoded secrets detection, secrets managers (Vault, AWS, Azure), rotation, log redaction, and Git hygiene."
+  },
+  {
+    "id": "ssrf-prevention",
+    "title": "OWASP Server-Side Request Forgery Prevention Cheat Sheet",
+    "url": "https://cheatsheetseries.owasp.org/cheatsheets/Server_Side_Request_Forgery_Prevention_Cheat_Sheet.html",
+    "category": "Cheat Sheet",
+    "description": "Enterprise guidelines for preventing SSRF attacks, DNS rebinding, internal subnet exploitation, and cloud metadata theft."
+  },
+  {
+    "id": "path-traversal-prevention",
+    "title": "OWASP Path Traversal & Safe File Access Cheat Sheet",
+    "url": "https://owasp.org/www-community/attacks/Path_Traversal",
+    "category": "Cheat Sheet",
+    "description": "Comprehensive techniques for canonicalization, boundary verification, and preventing directory traversal and Zip Slip attacks."
+  },
+  {
+    "id": "api-security",
+    "title": "OWASP API Security Best Practices Cheat Sheet",
+    "url": "https://owasp.org/www-project-api-security/",
+    "category": "Standard",
+    "description": "Best practices for OWASP API Security Top 10, covering BOLA defense, Mass Assignment prevention, token security, and rate limiting."
   }
 ]

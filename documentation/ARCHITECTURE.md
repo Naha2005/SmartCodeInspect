@@ -21,7 +21,15 @@ graph TB
 
     subgraph Transport["REST Communication Layer"]
         CORS["Flask CORS Middleware"]
-        Blueprints["Modular API Blueprints"]
+        Blueprints["Modular API Blueprints (/api/validate, /api/analyze, /api/orchestrate, etc.)"]
+    end
+
+    subgraph Orchestrator["Multi-Agent Orchestrator Engine"]
+        direction TB
+        CodeAgent["Code Analysis Agent (Smells, Complexity, Anti-Patterns)"]
+        SecAgent["Security Vulnerability Agent (OWASP 2026, CWE Mappings)"]
+        Merger["Unified Findings Aggregator (Deduplication, Security Grade, Quality Score)"]
+        CodeAgent & SecAgent --> Merger
     end
 
     subgraph Engines["Core Inspection & Intelligence Engines"]
@@ -35,15 +43,17 @@ graph TB
         AI["AI Advisory Agent (Gemini / Groq / Offline)"]
     end
 
-    subgraph Knowledge["Authentic OWASP Knowledge Base"]
-        OWASPDocs["15 Authentic OWASP Documents (.md)"]
+    subgraph Knowledge["Authentic OWASP 2026 Knowledge Base"]
+        OWASPDocs["15 Authentic OWASP Documents (.md)<br/>(10 Documents >= 300 Lines Each)"]
         SourcesJSON["sources.json Metadata Catalog"]
-        PrecomputedIndex["vector_index.json & chunks_metadata.json"]
+        PrecomputedIndex["vector_index.json & chunks_metadata.json (521+ Chunks)"]
     end
 
     UI -->|HTTP / JSON| Transport
     Transport --> Blueprints
+    Blueprints --> Orchestrator
     Blueprints --> Engines
+    Orchestrator --> Engines
     Engines --> Knowledge
 ```
 
@@ -104,19 +114,69 @@ The platform implements 11 deterministic security inspection rules across Python
 
 ---
 
-## 4. Hybrid Knowledge Retrieval Engine (ChromaDB + Pure Python TF-IDF)
+## 4. Multi-Agent Orchestration Architecture (`agents/orchestrator.py`)
+
+The platform implements an asynchronous multi-agent architecture where specialized agents evaluate submitted code in parallel:
+
+```
+                          [ Client Code Submission ]
+                                      │
+                                      ▼
+                        ┌───────────────────────────┐
+                        │  MultiAgentOrchestrator   │
+                        │   (ThreadPoolExecutor)    │
+                        └─────────────┬─────────────┘
+                                      │
+                   ┌──────────────────┴──────────────────┐
+                   ▼                                     ▼
+     ┌───────────────────────────┐         ┌───────────────────────────┐
+     │    Code Analysis Agent    │         │Security Vulnerability Agt │
+     │  (AST & Structural Smell) │         │  (OWASP Standards & CWE)  │
+     └─────────────┬─────────────┘         └─────────────┬─────────────┘
+                   │                                     │
+                   └──────────────────┬──────────────────┘
+                                      │
+                                      ▼
+                        ┌───────────────────────────┐
+                        │ Findings Merger & Dedup   │
+                        │ - Category-Aware Keying   │
+                        │ - Posture Grade (A - F)   │
+                        │ - Quality Score (0 - 100) │
+                        └───────────────────────────┘
+```
+
+### 4.1 Code Analysis Agent (`agents/code_analysis_agent.py`)
+- **Code Smell Detection**: Identifies bloated methods/functions, excessive parameter lists (> 5 parameters), cognitive nesting complexity (> 3 levels), and duplicated logic.
+- **Complexity Metrics**: Cyclomatic complexity branching points (`if`, `for`, `while`, boolean operator chains).
+- **Resource Management Leaks**: Detects unclosed file descriptors, missing `with` statement context managers, and unclosed Java streams.
+- **Defensive Rules**: `COMPLEX-PY-001`, `SMELL-PY-001` through `002`, `PRACTICE-PY-001` through `006`, `COMPLEX-JV-001` through `003`, `SMELL-JV-001` through `002`, `PRACTICE-JV-001` through `005`.
+
+### 4.2 Security Vulnerability Agent (`agents/security_agent.py`)
+- **OWASP 2026 Standards**: Scans for OWASP Top 10 vulnerabilities, exact CWE mappings (CWE-22, CWE-78, CWE-89, CWE-502, CWE-798, CWE-918).
+- **SSRF Detection**: Evaluates URL construction, outbound HTTP client calls, scheme allowlists, and link-local IP targets (`169.254.169.254`).
+- **Path Traversal**: Canonical containment verification (`is_relative_to`, `toRealPath`), dot-dot-slash sequence detection, Zip Slip prevention.
+- **XXE and Insecure XML**: Scans Java `DocumentBuilderFactory` and `SAXParserFactory` for missing `disallow-doctype-decl` features.
+
+### 4.3 Aggregation, Deduplication & Scoring
+- **Category-Aware Deduplication**: Merges findings using a composite key `(rule_id, category, line)` ensuring distinct quality and security findings on the same line are both preserved.
+- **Security Posture Grade**: Evaluates security-specific findings independently (High/Critical findings yield 'F'; Medium findings yield 'C' or 'D'; 0 security findings yield 'A').
+- **Quality Score**: Deducts proportional penalties per finding severity, strictly bounded between 0 and 100.
+
+---
+
+## 5. Hybrid Knowledge Retrieval Engine (ChromaDB + Pure Python TF-IDF)
 
 The knowledge retrieval layer provides authentic OWASP remediation guidance using a hybrid architecture:
 
-### 4.1 Document Ingestion & Chunking
-- Ingests authentic OWASP Markdown documents from `knowledge_base/documents/` (15 guidelines including OWASP Top 10, SQL Injection, Command Injection, Secrets Management, SSRF, Deserialization, etc.).
-- Splits documents into coherent semantic chunks preserving metadata (Title, Section, Category, Official URL) recorded in `knowledge_base/sources.json`.
+### 5.1 Document Ingestion & Chunking
+- Ingests authentic OWASP Markdown documents from `knowledge_base/documents/` (15 guidelines named `owasp_*.md`, including 10 comprehensive documents with >= 300 lines each covering OWASP Top 10 2026, SSRF Defense, Path Traversal, API Security, Cryptographic Storage, SQL Injection, Deserialization, Secrets Management, Authentication, and Command Injection).
+- Splits documents into coherent semantic chunks preserving metadata (Title, Section, Category, Official URL) recorded in `knowledge_base/sources.json`. Total: 521+ indexed chunks across 4,258 vocabulary terms.
 
-### 4.2 Primary Engine: ChromaDB Persistent Store
+### 5.2 Primary Engine: ChromaDB Persistent Store
 - Persistent vector collection stored in `knowledge_base/index/chroma/`.
 - Fast semantic vector search returning top matching passages.
 
-### 4.3 Fallback Engine: Zero-DLL Pure Python Vector Space Model
+### 5.3 Fallback Engine: Zero-DLL Pure Python Vector Space Model
 To ensure zero external native DLL dependencies in hardened or air-gapped environments:
 - Pre-computed TF-IDF index stored in `knowledge_base/index/vector_index.json` and `knowledge_base/index/chunks_metadata.json`.
 - **Term Frequency-Inverse Document Frequency (TF-IDF)**:
@@ -128,7 +188,7 @@ To ensure zero external native DLL dependencies in hardened or air-gapped enviro
 
 ---
 
-## 5. Multi-Provider AI Advisory Subsystem (`agents/ai_provider.py`)
+## 6. Multi-Provider AI Advisory Subsystem (`agents/ai_provider.py`)
 
 The platform integrates an AI consultation agent with strict security boundaries:
 1. **Multi-Provider Support**: Supports **Google Gemini** (`gemini-3.8-flash`) and **Groq** (`llama-3.1-8b-instant`).
@@ -166,3 +226,71 @@ The report generation pipeline builds downloadable security audit reports:
 | `POST` | `/api/knowledge/search` | OWASP semantic vector search | `{"query", "top_k"}` | `{"query", "results": [...]}` |
 | `POST` | `/api/ai/explain` | AI finding explanation | `{"finding", "owasp_passages"}` | `{"success", "explanation", "provider", "model"}` |
 | `POST` | `/api/reports/pdf` | Downloadable PDF audit report | `{"analysis_data", "source_code", "language"}` | Binary PDF attachment (`application/pdf`) |
+
+---
+
+## 8. Milestone 2: Multi-Agent Orchestration & Quality Engine
+
+Milestone 2 introduces a concurrent multi-agent inspection architecture that simultaneously evaluates code quality and cybersecurity posture.
+
+```mermaid
+flowchart LR
+    Client["Client Request (/api/analyze)"] --> Orchestrator["Multi-Agent Orchestrator\n(ThreadPoolExecutor)"]
+    
+    subgraph ParallelAgents["Concurrent Inspection Agents"]
+        Orchestrator --> Agent1["🔍 Code Analysis Agent\n- Code Smells (Long Methods, Params, Bloat)\n- Complexity (Cyclomatic, Deep Nesting)\n- Design Anti-Patterns (Mutable Defaults, God Class)\n- Poor Practices (Print, Resource Leaks)"]
+        Orchestrator --> Agent2["🛡️ Security Vulnerability Agent\n- OWASP Top 10 (A01–A10)\n- CWE Classifications\n- Precise Location Flagging\n- Severity Scoring (1.0–10.0)"]
+    end
+    
+    Agent1 --> Merge["Unified Findings Merger\n& Deduplication Pipeline"]
+    Agent2 --> Merge
+    Merge --> Output["Unified Findings Registry\n- Sorted by Severity Score (Desc)\n- Quality Score (0–100)\n- Security Posture Grade (A–F)\n- Agent Telemetry (Duration, Status)"]
+```
+
+### 8.1 Code Analysis Agent (`backend/agents/code_analysis_agent.py`)
+Inspects syntax and structure for software maintainability and engineering excellence:
+- **Code Smells**:
+  - `SMELL-PY-001` / `SMELL-JV-001`: Long method / function body smell.
+  - `SMELL-PY-002` / `SMELL-JV-002`: Long parameter list (> 5 parameters).
+  - `SMELL-PY-003` / `SMELL-JV-003`: Bloated class smell (> 150 lines or > 12 methods).
+  - `SMELL-PY-004` / `SMELL-JV-004`: Empty exception / catch handler suppressing runtime errors.
+  - `SMELL-PY-005` / `SMELL-JV-005`: Wildcard namespace / package imports.
+- **Complexity Issues**:
+  - `COMPLEX-PY-001` / `COMPLEX-JV-001`: High Cyclomatic Complexity (McCabe metric > 8).
+  - `COMPLEX-PY-002` / `COMPLEX-JV-002`: Deep Control Flow Nesting (Arrow anti-pattern depth >= 4).
+  - `COMPLEX-PY-003` / `COMPLEX-JV-003`: Complex Boolean Expressions (>= 3 chained operators).
+- **Design Anti-Patterns**:
+  - `DESIGN-PY-001`: Mutable default argument trap in Python (`def f(x=[])`).
+  - `DESIGN-PY-002` / `DESIGN-JV-002`: God Class / God Function anti-pattern.
+  - `DESIGN-PY-003` / `DESIGN-JV-001`: Generic catch-all exception (`except Exception` / `catch (Exception e)`).
+  - `DESIGN-PY-004`: Magic numbers embedded in business logic without named constants.
+- **Poor Coding Practices**:
+  - `PRACTICE-PY-001` / `PRACTICE-JV-001`: Console printing (`print`, `System.out.println`, `printStackTrace`) left in production.
+  - `PRACTICE-PY-002` / `PRACTICE-JV-002`: Unmanaged I/O stream / file resource leaks (missing `with` or try-with-resources).
+  - `PRACTICE-PY-003` / `PRACTICE-JV-003`: Language style guide naming convention violations (PEP 8 / Java camelCase).
+  - `PRACTICE-PY-004`: Missing docstrings on substantial classes and functions (> 15 lines).
+
+### 8.2 Security Vulnerability Agent (`backend/agents/security_agent.py`)
+Enforces OWASP Top 10 standards with exact location flagging, CWE mapping, and severity scoring:
+- `SEC-PY-001` / `SEC-JV-002`: Dynamic Code Execution / Command Injection (`eval`, `subprocess`, `Runtime.exec`) [CWE-95, CWE-78 | OWASP A03:Injection]
+- `SEC-PY-003` / `SEC-JV-001`: SQL Injection via dynamic string formatting / query concatenation [CWE-89 | OWASP A03:Injection]
+- `SEC-PY-004` / `SEC-JV-003`: Hardcoded API Credentials & Passwords [CWE-798 | OWASP A07:Identification]
+- `SEC-PY-005` / `SEC-JV-004`: Insecure Deserialization (`pickle.loads`, `ObjectInputStream`) [CWE-502 | OWASP A08:Integrity]
+- `SEC-PY-006` / `SEC-JV-005`: Broken / Weak Cryptographic Hashes (`MD5`, `SHA-1`, `DES`) [CWE-327 | OWASP A02:Crypto]
+- `SEC-PY-007` / `SEC-JV-006`: Path Traversal / Arbitrary File Access (`os.path.join`, Java `File`) [CWE-22 | OWASP A01:Access Control]
+- `SEC-PY-008`: Server-Side Request Forgery (`requests.get` with user target) [CWE-918 | OWASP A10:SSRF]
+- `SEC-JV-007`: Insecure XML Parser Configuration / XXE (`DocumentBuilderFactory`) [CWE-611 | OWASP A05:Misconfiguration]
+
+### 8.3 Multi-Agent Orchestrator (`backend/agents/orchestrator.py`)
+- **Parallel Concurrency**: Uses `concurrent.futures.ThreadPoolExecutor(max_workers=2)` to run both agents concurrently.
+- **Unified Findings Merging**: Merges, deduplicates, and sorts findings descending by `severity_score` (Critical 9.5 -> Low 2.5), then by source line.
+- **Scoring Formulas**:
+  - **Code Quality Score** (0–100):
+    $$\text{Quality Score} = \max\left(0, 100 - \sum \text{Quality Penalties}\right)$$
+  - **Security Posture Grade**:
+    - `Grade A`: 0 Critical, 0 High findings
+    - `Grade B`: 0 Critical, 0 High, Medium findings present
+    - `Grade C`: 0 Critical, 1–2 High findings
+    - `Grade D`: 0 Critical, > 2 High findings
+    - `Grade F`: Critical findings detected
+

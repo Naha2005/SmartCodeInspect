@@ -2,6 +2,7 @@ import json
 import math
 import os
 import re
+from datetime import datetime, timezone
 from collections import Counter
 from pathlib import Path
 from typing import List, Dict, Any
@@ -77,7 +78,7 @@ def chunk_document(
                 "url": doc_url,
                 "category": category,
                 "section": section_title,
-                "retrieval_date": "2026-10-11",
+                "retrieval_date": "2026-10-25",
                 "text": cleaned_body
             })
             chunk_index += 1
@@ -94,7 +95,7 @@ def chunk_document(
                         "url": doc_url,
                         "category": category,
                         "section": section_title,
-                        "retrieval_date": "2026-10-11",
+                        "retrieval_date": "2026-10-25",
                         "text": chunk_slice
                     })
                     chunk_index += 1
@@ -163,21 +164,35 @@ def run_ingestion() -> Dict[str, Any]:
     DOCUMENTS_DIR.mkdir(parents=True, exist_ok=True)
 
     sources_by_file = {
-        "owasp_top_ten_2025.md": ("owasp-top-10", "OWASP Top 10: 2025", "https://top10.owasp.org/2025/", "Standard"),
+        "owasp_top_10_2026.md": ("owasp-top-10", "OWASP Top 10: 2026", "https://top10.owasp.org/2026/", "Standard"),
+        "owasp_top_ten_2025.md": ("owasp-top-10", "OWASP Top 10: 2026", "https://top10.owasp.org/2026/", "Standard"),
+        "owasp_sql_injection_prevention.md": ("sql-injection-prevention", "OWASP SQL Injection Prevention Cheat Sheet", "https://cheatsheetseries.owasp.org/cheatsheets/SQL_Injection_Prevention_Cheat_Sheet.html", "Cheat Sheet"),
         "sql_injection_prevention.md": ("sql-injection-prevention", "OWASP SQL Injection Prevention Cheat Sheet", "https://cheatsheetseries.owasp.org/cheatsheets/SQL_Injection_Prevention_Cheat_Sheet.html", "Cheat Sheet"),
+        "owasp_os_command_injection_defense.md": ("os-command-injection", "OWASP OS Command Injection Defense Cheat Sheet", "https://cheatsheetseries.owasp.org/cheatsheets/OS_Command_Injection_Defense_Cheat_Sheet.html", "Cheat Sheet"),
         "os_command_injection_defense.md": ("os-command-injection", "OWASP OS Command Injection Defense Cheat Sheet", "https://cheatsheetseries.owasp.org/cheatsheets/OS_Command_Injection_Defense_Cheat_Sheet.html", "Cheat Sheet"),
+        "owasp_xss_prevention.md": ("xss-prevention", "OWASP Cross Site Scripting Prevention Cheat Sheet", "https://cheatsheetseries.owasp.org/cheatsheets/Cross_Site_Scripting_Prevention_Cheat_Sheet.html", "Cheat Sheet"),
         "xss_prevention.md": ("xss-prevention", "OWASP Cross Site Scripting Prevention Cheat Sheet", "https://cheatsheetseries.owasp.org/cheatsheets/Cross_Site_Scripting_Prevention_Cheat_Sheet.html", "Cheat Sheet"),
+        "owasp_deserialization_cheat_sheet.md": ("deserialization-prevention", "OWASP Deserialization Cheat Sheet", "https://cheatsheetseries.owasp.org/cheatsheets/Deserialization_Cheat_Sheet.html", "Cheat Sheet"),
         "deserialization_cheat_sheet.md": ("deserialization-prevention", "OWASP Deserialization Cheat Sheet", "https://cheatsheetseries.owasp.org/cheatsheets/Deserialization_Cheat_Sheet.html", "Cheat Sheet"),
+        "owasp_cryptographic_storage.md": ("cryptographic-storage", "OWASP Cryptographic Storage Cheat Sheet", "https://cheatsheetseries.owasp.org/cheatsheets/Cryptographic_Storage_Cheat_Sheet.html", "Cheat Sheet"),
         "cryptographic_storage.md": ("cryptographic-storage", "OWASP Cryptographic Storage Cheat Sheet", "https://cheatsheetseries.owasp.org/cheatsheets/Cryptographic_Storage_Cheat_Sheet.html", "Cheat Sheet"),
-        # New secure coding standard documents
+        "owasp_authentication_cheat_sheet.md": ("authentication", "OWASP Authentication Cheat Sheet", "https://cheatsheetseries.owasp.org/cheatsheets/Authentication_Cheat_Sheet.html", "Cheat Sheet"),
         "authentication_cheat_sheet.md": ("authentication", "OWASP Authentication Cheat Sheet", "https://cheatsheetseries.owasp.org/cheatsheets/Authentication_Cheat_Sheet.html", "Cheat Sheet"),
+        "owasp_input_validation_cheat_sheet.md": ("input-validation", "OWASP Input Validation Cheat Sheet", "https://cheatsheetseries.owasp.org/cheatsheets/Input_Validation_Cheat_Sheet.html", "Cheat Sheet"),
         "input_validation_cheat_sheet.md": ("input-validation", "OWASP Input Validation Cheat Sheet", "https://cheatsheetseries.owasp.org/cheatsheets/Input_Validation_Cheat_Sheet.html", "Cheat Sheet"),
+        "owasp_secrets_management_cheat_sheet.md": ("secrets-management", "OWASP Secrets Management Cheat Sheet", "https://cheatsheetseries.owasp.org/cheatsheets/Secrets_Management_Cheat_Sheet.html", "Cheat Sheet"),
         "secrets_management_cheat_sheet.md": ("secrets-management", "OWASP Secrets Management Cheat Sheet", "https://cheatsheetseries.owasp.org/cheatsheets/Secrets_Management_Cheat_Sheet.html", "Cheat Sheet"),
+        "owasp_broken_access_control.md": ("broken-access-control", "OWASP Broken Access Control Cheat Sheet", "https://cheatsheetseries.owasp.org/cheatsheets/Access_Control_Cheat_Sheet.html", "Cheat Sheet"),
         "broken_access_control.md": ("broken-access-control", "OWASP Broken Access Control Cheat Sheet", "https://cheatsheetseries.owasp.org/cheatsheets/Access_Control_Cheat_Sheet.html", "Cheat Sheet"),
+        "owasp_security_misconfiguration.md": ("security-misconfiguration", "OWASP Security Misconfiguration Cheat Sheet", "https://owasp.org/Top10/A05_2021-Security_Misconfiguration/", "Standard"),
         "security_misconfiguration.md": ("security-misconfiguration", "OWASP Security Misconfiguration Cheat Sheet", "https://owasp.org/Top10/A05_2021-Security_Misconfiguration/", "Standard"),
+        "owasp_ssrf_prevention.md": ("ssrf-prevention", "OWASP Server-Side Request Forgery Prevention Cheat Sheet", "https://cheatsheetseries.owasp.org/cheatsheets/Server_Side_Request_Forgery_Prevention_Cheat_Sheet.html", "Cheat Sheet"),
         "ssrf_prevention.md": ("ssrf-prevention", "OWASP Server-Side Request Forgery Prevention Cheat Sheet", "https://cheatsheetseries.owasp.org/cheatsheets/Server_Side_Request_Forgery_Prevention_Cheat_Sheet.html", "Cheat Sheet"),
+        "owasp_path_traversal_prevention.md": ("path-traversal-prevention", "OWASP Path Traversal & Safe File Access Cheat Sheet", "https://owasp.org/www-community/attacks/Path_Traversal", "Cheat Sheet"),
         "path_traversal_prevention.md": ("path-traversal-prevention", "OWASP Path Traversal & Safe File Access Cheat Sheet", "https://owasp.org/www-community/attacks/Path_Traversal", "Cheat Sheet"),
+        "owasp_secure_file_uploads.md": ("secure-file-uploads", "OWASP Secure File Upload Cheat Sheet", "https://cheatsheetseries.owasp.org/cheatsheets/File_Upload_Cheat_Sheet.html", "Cheat Sheet"),
         "secure_file_uploads.md": ("secure-file-uploads", "OWASP Secure File Upload Cheat Sheet", "https://cheatsheetseries.owasp.org/cheatsheets/File_Upload_Cheat_Sheet.html", "Cheat Sheet"),
+        "owasp_api_security.md": ("api-security", "OWASP API Security Best Practices Cheat Sheet", "https://owasp.org/www-project-api-security/", "Standard"),
         "api_security.md": ("api-security", "OWASP API Security Best Practices Cheat Sheet", "https://owasp.org/www-project-api-security/", "Standard"),
     }
 
@@ -274,7 +289,7 @@ def run_ingestion() -> Dict[str, Any]:
         "chroma_indexed": chroma_indexed,
         "vocabulary_size": vector_index["vocabulary_size"],
         "index_directory": str(INDEX_DIR),
-        "timestamp": "2026-10-12T19:00:00"
+        "timestamp": datetime.now(timezone.utc).isoformat()
     }
 
     with open(INDEX_DIR / "status.json", "w", encoding="utf-8") as f:

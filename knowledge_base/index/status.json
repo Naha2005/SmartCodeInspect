@@ -2,9 +2,9 @@
   "status": "ready",
   "vector_algorithm": "ChromaDB Vector Store (with TF-IDF Hybrid Fallback)",
   "documents_count": 15,
-  "chunks_count": 173,
+  "chunks_count": 521,
   "chroma_indexed": true,
-  "vocabulary_size": 2033,
+  "vocabulary_size": 4260,
   "index_directory": "C:\\Users\\User\\Desktop\\SmartCodeInspect\\knowledge_base\\index",
-  "timestamp": "2026-10-12T19:00:00"
+  "timestamp": "2026-10-25T13:18:50.832826+00:00"
 }

@@ -9,16 +9,26 @@ ROOT_DIR = Path(__file__).resolve().parent
 BACKEND_DIR = ROOT_DIR / "backend"
 if str(BACKEND_DIR) not in sys.path:
     sys.path.insert(0, str(BACKEND_DIR))
-
-from validators.python_validator import validate_python_source
-from validators.java_validator import validate_java_source, detect_javac_availability
-from analyzers.python_analyzer import analyze_python_source
-from analyzers.java_analyzer import analyze_java_source
-from knowledge_base.retriever import OWASPRetriever
-from knowledge_base.ingest import run_ingestion
-from agents.ai_provider import get_ai_explanation
-from reports.pdf_generator import generate_pdf_report
-from config import Config
+try:
+    from backend.validators.python_validator import validate_python_source
+    from backend.validators.java_validator import validate_java_source, detect_javac_availability
+    from backend.analyzers.python_analyzer import analyze_python_source
+    from backend.analyzers.java_analyzer import analyze_java_source
+    from backend.knowledge_base.retriever import OWASPRetriever
+    from backend.knowledge_base.ingest import run_ingestion
+    from backend.agents.ai_provider import get_ai_explanation
+    from backend.reports.pdf_generator import generate_pdf_report
+    from backend.config import Config
+except ImportError:
+    from validators.python_validator import validate_python_source  # type: ignore
+    from validators.java_validator import validate_java_source, detect_javac_availability  # type: ignore
+    from analyzers.python_analyzer import analyze_python_source  # type: ignore
+    from analyzers.java_analyzer import analyze_java_source  # type: ignore
+    from knowledge_base.retriever import OWASPRetriever  # type: ignore
+    from knowledge_base.ingest import run_ingestion  # type: ignore
+    from agents.ai_provider import get_ai_explanation  # type: ignore
+    from reports.pdf_generator import generate_pdf_report  # type: ignore
+    from config import Config  # type: ignore
 
 # Streamlit Page Setup
 st.set_page_config(
