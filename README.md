@@ -89,8 +89,8 @@ SmartCodeInspect/
 ├── zip_project.py               # Clean release packaging utility
 ├── streamlit_app.py             # Alternative Streamlit exploratory interface
 │
-├── Infosys_M1_Agile_Docs/       # Agile Project Management Deliverables
-│   ├── Agile_Template_v0.1.xls            # Sprint planning, backlog & user stories
+├── Infosys_Agile_Docs/          # Agile Project Management Deliverables
+│   ├── Agile_Template_v0.1.xlsx           # Sprint planning, backlog & user stories
 │   ├── Defect_Tracker Template_v0.1.xlsx  # Defect triage & bug lifecycle tracking
 │   └── Unit_Test_Plan_v0.1.xlsx           # Unit test scenarios & coverage plan
 │
@@ -183,8 +183,8 @@ SmartCodeInspect/
 ### 6. Executive PDF Audit Reports
 - Automatically builds downloadable, multi-page PDF inspection reports complete with executive metadata, severity distribution charts, finding evidence snippets, and OWASP references using ReportLab.
 
-### 7. Infosys Agile Deliverables (`Infosys_M1_Agile_Docs/`)
-- Bundled with complete Agile project management artifacts: Sprint Planning & User Stories (`Agile_Template_v0.1.xls`), Defect Tracking (`Defect_Tracker Template_v0.1.xlsx`), and Unit Test Coverage Plan (`Unit_Test_Plan_v0.1.xlsx`).
+### 7. Infosys Agile Deliverables (`Infosys_Agile_Docs/`)
+- Bundled with complete Agile project management artifacts: Sprint Planning & User Stories (`Agile_Template_v0.1.xlsx`), Defect Tracking (`Defect_Tracker Template_v0.1.xlsx`), and Unit Test Coverage Plan (`Unit_Test_Plan_v0.1.xlsx`).
 
 ---
 
