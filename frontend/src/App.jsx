@@ -6,6 +6,8 @@ import { DiagnosticsPanel } from './components/DiagnosticsPanel';
 import { FindingsPanel } from './components/FindingsPanel';
 import { KnowledgeBasePanel } from './components/KnowledgeBasePanel';
 import { AIModal } from './components/AIModal';
+import { PRSummaryModal } from './components/PRSummaryModal';
+import { ConversationalAssistant } from './components/ConversationalAssistant';
 import { apiService } from './services/api';
 import { SAMPLE_CODES } from './constants/samples';
 
@@ -30,6 +32,9 @@ export default function App() {
 
   // Modals & Notifications
   const [selectedFindingForAI, setSelectedFindingForAI] = useState(null);
+  const [isPrSummaryOpen, setIsPrSummaryOpen] = useState(false);
+  const [isAssistantOpen, setIsAssistantOpen] = useState(false);
+  const [assistantFinding, setAssistantFinding] = useState(null);
   const [notification, setNotification] = useState(null);
 
   const fetchHealth = async () => {
@@ -58,7 +63,7 @@ export default function App() {
       }
     });
     return () => { cancelled = true; };
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const showNotification = (msg, type = 'info') => {
@@ -69,21 +74,24 @@ export default function App() {
   };
 
   // Language change handler — cleanses old results to prevent orphaned findings across tabs
-  const handleLanguageChange = (newLang) => {
+  // Accepts optional preserveCode flag so user-uploaded or dragged-in files are not overwritten by samples
+  const handleLanguageChange = (newLang, preserveCode = false) => {
     if (newLang === language) return;
     setLanguage(newLang);
     setValidationResult(null);
     setAnalysisResult(null);
     setAnalysisError(null);
     setNotification(null);
-    if (newLang === 'python') {
-      const sample = SAMPLE_CODES.python_vulnerable;
-      setSourceCode(sample.code);
-      setFilename(sample.filename);
-    } else {
-      const sample = SAMPLE_CODES.java_vulnerable;
-      setSourceCode(sample.code);
-      setFilename(sample.filename);
+    if (!preserveCode) {
+      if (newLang === 'python') {
+        const sample = SAMPLE_CODES.python_vulnerable;
+        setSourceCode(sample.code);
+        setFilename(sample.filename);
+      } else {
+        const sample = SAMPLE_CODES.java_vulnerable;
+        setSourceCode(sample.code);
+        setFilename(sample.filename);
+      }
     }
   };
 
@@ -184,6 +192,68 @@ export default function App() {
     }
   };
 
+  // Prevent background scroll and support ESC key when any modal is open
+  React.useEffect(() => {
+    const hasModal = isPrSummaryOpen || isAssistantOpen || Boolean(selectedFindingForAI);
+    if (hasModal) {
+      document.body.style.overflow = 'hidden';
+    } else {
+      document.body.style.overflow = '';
+    }
+    return () => {
+      document.body.style.overflow = '';
+    };
+  }, [isPrSummaryOpen, isAssistantOpen, selectedFindingForAI]);
+
+  React.useEffect(() => {
+    const handleKeyDown = (e) => {
+      if (e.key === 'Escape') {
+        setIsPrSummaryOpen(false);
+        setIsAssistantOpen(false);
+        setSelectedFindingForAI(null);
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, []);
+
+  const handleOpenPrSummary = React.useCallback(() => {
+    setIsAssistantOpen(false);
+    setSelectedFindingForAI(null);
+    setIsPrSummaryOpen(true);
+  }, []);
+
+  const handleOpenAssistant = React.useCallback((finding = null) => {
+    setIsPrSummaryOpen(false);
+    setSelectedFindingForAI(null);
+    setAssistantFinding(finding || null);
+    setIsAssistantOpen(true);
+  }, []);
+
+  // Apply finding remediation directly into the active editor
+  const handleApplyFix = React.useCallback((finding, correctedCode) => {
+    if (!finding || !correctedCode) return;
+    setSourceCode((prevCode) => {
+      // If evidence exists in the source code, replace the evidence
+      if (finding.evidence && prevCode.includes(finding.evidence.trim())) {
+        return prevCode.replace(finding.evidence.trim(), correctedCode.trim());
+      }
+      const lines = prevCode.split('\n');
+      const targetLineIdx = (finding.line || 1) - 1;
+      if (targetLineIdx >= 0 && targetLineIdx < lines.length) {
+        const indent = (lines[targetLineIdx].match(/^\s*/) || [''])[0];
+        const indentedFix = correctedCode
+          .split('\n')
+          .map((line, i) => (i === 0 ? indent + line.trimStart() : indent + line))
+          .join('\n');
+        lines[targetLineIdx] = indentedFix;
+        return lines.join('\n');
+      }
+      return prevCode;
+    });
+    showNotification(`⚡ Applied remediation for ${finding.rule_id} at line ${finding.line}. Re-analyzing to verify fix...`, 'success');
+  }, []);
+
   return (
     <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column' }}>
       {/* System Status Bar */}
@@ -266,13 +336,70 @@ export default function App() {
 
           <FindingsPanel
             findings={analysisResult?.findings || []}
-            summary={analysisResult?.summary || { total_findings: 0, critical: 0, high: 0, medium: 0, low: 0 }}
+            summary={analysisResult?.summary || { total_findings: 0, critical: 0, high: 0, medium: 0, low: 0, overall_code_health_score: 100 }}
             hasScanned={Boolean(analysisResult)}
             isAnalyzing={isAnalyzing}
-            onSelectForAI={(finding) => setSelectedFindingForAI(finding)}
+            onSelectForAI={(finding) => {
+              setIsPrSummaryOpen(false);
+              setIsAssistantOpen(false);
+              setSelectedFindingForAI(finding);
+            }}
+            onOpenAssistant={handleOpenAssistant}
+            onOpenPrSummary={handleOpenPrSummary}
+            onApplyFix={handleApplyFix}
           />
         </div>
       </main>
+
+      {/* PR Summary Review Modal */}
+      {isPrSummaryOpen && (
+        <PRSummaryModal
+          prSummary={analysisResult?.pr_summary || {
+            filename,
+            language,
+            overall_health_score: analysisResult?.summary?.overall_code_health_score ?? 85,
+            code_quality_score: analysisResult?.summary?.code_quality_score ?? 90,
+            security_posture: analysisResult?.summary?.security_posture ?? 'A',
+            verdict: {
+              decision: (analysisResult?.summary?.critical > 0 || analysisResult?.summary?.high > 0) ? 'CHANGES_REQUESTED' : 'APPROVED',
+              label: (analysisResult?.summary?.critical > 0 || analysisResult?.summary?.high > 0) ? '🔴 Changes Requested' : '🟢 Approved',
+              reason: (analysisResult?.summary?.critical > 0 || analysisResult?.summary?.high > 0)
+                ? 'Security vulnerabilities must be remediated before merge.'
+                : 'All automated quality and security checks passed.'
+            },
+            severity_breakdown: analysisResult?.summary,
+            prioritized_fix_list: {
+              p0_blockers: (analysisResult?.findings || []).filter(f => ['Critical', 'High'].includes(f.severity)),
+              p1_important: (analysisResult?.findings || []).filter(f => f.severity === 'Medium'),
+              p2_maintainability: (analysisResult?.findings || []).filter(f => ['Low', 'Informational'].includes(f.severity))
+            },
+            merge_checklist: (analysisResult?.findings || []).slice(0, 5).map(f => `Resolve Line ${f.line}: ${f.title}`),
+            markdown: `## 📋 Pull Request Review Summary\n\n**File:** \`${filename}\`\n\n**Total Findings:** ${analysisResult?.findings?.length || 0}\n`
+          }}
+          summary={analysisResult?.summary}
+          filename={filename}
+          language={language}
+          onClose={() => setIsPrSummaryOpen(false)}
+          onOpenAssistant={handleOpenAssistant}
+          onApplyFix={handleApplyFix}
+        />
+      )}
+
+      {/* Conversational Code Assistant Modal */}
+      <ConversationalAssistant
+        isOpen={isAssistantOpen}
+        onClose={() => {
+          setIsAssistantOpen(false);
+          setAssistantFinding(null);
+        }}
+        initialFinding={assistantFinding}
+        sourceCode={sourceCode}
+        language={language}
+        filename={filename}
+        findings={analysisResult?.findings || []}
+        onOpenPrSummary={handleOpenPrSummary}
+        onApplyFix={handleApplyFix}
+      />
 
       {/* AI Advisory Modal */}
       {selectedFindingForAI && (

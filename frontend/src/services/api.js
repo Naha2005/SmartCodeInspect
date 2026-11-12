@@ -97,6 +97,45 @@ export const apiService = {
     return data;
   },
 
+  async chatWithAssistant(query, history = [], context = {}) {
+    const res = await fetchWithTimeout(`${API_BASE}/chat`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ query, history, context })
+    }, 25000);
+    const data = await res.json();
+    if (!res.ok && !data.response) {
+      throw new Error(data.error || `Assistant chat request failed with status ${res.status}`);
+    }
+    return data;
+  },
+
+  async remediateFinding(finding, sourceCode = null, language = null) {
+    const res = await fetchWithTimeout(`${API_BASE}/remediate`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ finding, source_code: sourceCode, language })
+    }, 15000);
+    const data = await res.json();
+    if (!res.ok) {
+      throw new Error(data.error || `Remediation request failed with status ${res.status}`);
+    }
+    return data;
+  },
+
+  async generatePrSummary(findings = [], summary = {}, metadata = {}) {
+    const res = await fetchWithTimeout(`${API_BASE}/pr-summary`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ findings, summary, metadata })
+    }, 15000);
+    const data = await res.json();
+    if (!res.ok) {
+      throw new Error(data.error || `PR summary request failed with status ${res.status}`);
+    }
+    return data;
+  },
+
   async downloadPdfReport({ analysisData, sourceCode, language, filename }) {
     const payload = {};
     if (sourceCode && language) {

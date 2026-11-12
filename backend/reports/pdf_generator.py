@@ -135,6 +135,36 @@ def generate_pdf_report(analysis_data: Dict[str, Any]) -> io.BytesIO:
     elements.append(meta_table)
     elements.append(Spacer(1, 14))
 
+    # Executive PR Summary block if available (Milestone 3)
+    pr_summary = analysis_data.get("pr_summary")
+    if pr_summary and isinstance(pr_summary, dict):
+        verdict = pr_summary.get("verdict", {})
+        health_score = pr_summary.get("overall_health_score", 100)
+        v_label = verdict.get("label", "Approved")
+        v_reason = verdict.get("reason", "")
+        
+        pr_rows = [
+            [
+                Paragraph("<b>PR Review Verdict:</b>", body_style),
+                Paragraph(f"<b>{escape_pdf_text(v_label)}</b> &bull; Overall Health: <b>{health_score}/100</b>", body_style)
+            ],
+            [
+                Paragraph("<b>Merge Recommendation:</b>", body_style),
+                Paragraph(escape_pdf_text(v_reason), body_style)
+            ]
+        ]
+        pr_table = Table(pr_rows, colWidths=[130, 400])
+        pr_table.setStyle(TableStyle([
+            ("BACKGROUND", (0, 0), (-1, -1), colors.HexColor("#F1F5F9")),
+            ("BOX", (0, 0), (-1, -1), 0.5, colors.HexColor("#CBD5E1")),
+            ("INNERGRID", (0, 0), (-1, -1), 0.5, colors.HexColor("#E2E8F0")),
+            ("PADDING", (0, 0), (-1, -1), 5),
+            ("VALIGN", (0, 0), (-1, -1), "TOP"),
+        ]))
+        elements.append(Paragraph("Pull Request Review Assessment", section_heading))
+        elements.append(pr_table)
+        elements.append(Spacer(1, 10))
+
     # Summary Statistics
     summary = analysis_data.get("summary", {})
     total = summary.get("total_findings", 0)
@@ -143,7 +173,7 @@ def generate_pdf_report(analysis_data: Dict[str, Any]) -> io.BytesIO:
     med = summary.get("medium", 0)
     low = summary.get("low", 0)
 
-    elements.append(Paragraph("Executive Vulnerability Summary", section_heading))
+    elements.append(Paragraph("Executive Severity Breakdown", section_heading))
 
     summary_table_data = [
         ["Total Findings", "Critical", "High", "Medium", "Low / Info"],
@@ -212,6 +242,13 @@ def generate_pdf_report(analysis_data: Dict[str, Any]) -> io.BytesIO:
                     Paragraph(urls_html, body_style)
                 ]
             ]
+
+            rem = f.get("remediation")
+            if rem and isinstance(rem, dict) and rem.get("corrected_code"):
+                finding_rows.append([
+                    Paragraph("<b>Remediation Code:</b>", body_style),
+                    Paragraph(f"<font face='Courier'>{escape_pdf_text(rem['corrected_code'][:350])}</font>", code_style)
+                ])
 
             card_table = Table(finding_rows, colWidths=[110, 420])
             card_table.setStyle(TableStyle([

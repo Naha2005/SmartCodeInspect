@@ -5,13 +5,13 @@
 [![React 19](https://img.shields.io/badge/React-19.2-61dafb.svg)](https://react.dev/)
 [![Vite 8](https://img.shields.io/badge/Vite-8.3-646cff.svg)](https://vite.dev/)
 [![OWASP Top 10](https://img.shields.io/badge/OWASP-Top%2010%202026%20%2F%202025-red.svg)](https://owasp.org/www-project-top-ten/)
-[![Multi-Agent](https://img.shields.io/badge/Architecture-Multi--Agent%20Orchestrator-blueviolet.svg)](#-multi-agent-orchestration-architecture)
-[![Tests Passing](https://img.shields.io/badge/Tests-63%20Passed-success.svg)](#-automated-testing)
+[![Multi-Agent](https://img.shields.io/badge/Architecture-5--Agent%20Pipeline-blueviolet.svg)](#-multi-agent-orchestration-architecture)
+[![Tests Passing](https://img.shields.io/badge/Tests-82%20Backend%20%2B%2014%20Frontend%20Passed-success.svg)](#-automated-testing)
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 
 An enterprise-grade static code analysis, security auditing, multi-agent orchestration, and OWASP compliance platform engineered for Python and Java codebases. 
 
-The platform guarantees **strict zero-execution static inspection** (submitted source code is never executed), coupled with real compiler diagnostic verification (`javac`), parallel **multi-agent orchestration** (Code Analysis Agent + Security Vulnerability Agent), 11+ deterministic security rule detectors, a hybrid vector knowledge retrieval engine (ChromaDB + Pure-Python TF-IDF) over authentic **OWASP 2026 Standards**, optional multi-provider AI security consultation (Google Gemini & Groq with offline fallback), and downloadable ReportLab PDF audit reports.
+The platform guarantees **strict zero-execution static inspection** (submitted source code is never executed), coupled with real compiler diagnostic verification (`javac`), parallel **multi-agent orchestration** (Code Analysis Agent + Security Vulnerability Agent + Remediation Agent + PR Summary Agent), a RAG-powered **Conversational Code Assistant**, 11+ deterministic security rule detectors, a hybrid vector knowledge retrieval engine (ChromaDB + Pure-Python TF-IDF) over authentic **OWASP 2026 Standards**, optional multi-provider AI security consultation (Google Gemini & Groq with offline fallback), and downloadable ReportLab PDF audit reports.
 
 ---
 
@@ -20,30 +20,36 @@ The platform guarantees **strict zero-execution static inspection** (submitted s
 ```mermaid
 flowchart TD
     subgraph Client["Frontend Client (React 19 + Vite 8)"]
-        UI["Cybersecurity Dashboard UI"]
+        UI["Cybersecurity Developer Portal"]
         Editor["Monospaced Code Editor & Samples"]
-        FindingsView["Severity-Categorized Findings Panel"]
+        FindingsView["Severity-Categorized Findings & Remediation Panel"]
         DiagnosticsView["Compiler Diagnostics Panel"]
         KBView["OWASP Vector Retrieval Panel"]
-        AIModal["AI Advisory Modal (Disclosed)"]
+        PRModal["PR Summary & Review Modal"]
+        ChatDrawer["Conversational RAG Code Assistant"]
     end
 
-    subgraph API["Backend API (Flask RESTful Engine)"]
+    subgraph API["Backend API (Flask & FastAPI RESTful Engine)"]
         HealthRoute["/api/health"]
         ValidateRoute["/api/validate"]
         AnalyzeRoute["/api/analyze"]
         OrchestrateRoute["/api/orchestrate"]
+        ChatRoute["/api/chat"]
+        RemediateRoute["/api/remediate"]
+        PRSummaryRoute["/api/pr-summary"]
         KBStatusRoute["/api/knowledge/status"]
         KBSearchRoute["/api/knowledge/search"]
         AIRoute["/api/ai/explain"]
         ReportRoute["/api/reports/pdf"]
     end
 
-    subgraph Orchestrator["Multi-Agent Orchestrator (Concurrent Thread Pool)"]
+    subgraph Orchestrator["Multi-Agent Orchestrator Pipeline"]
         direction TB
         CodeAgent["Code Analysis Agent<br/>(Smells, Complexity, Anti-Patterns)"]
         SecAgent["Security Vulnerability Agent<br/>(OWASP 2026, CWE Mappings)"]
-        Merger["Unified Findings Merger & Deduplicator<br/>(Security Posture Grade & Quality Score)"]
+        RemAgent["Remediation Agent<br/>(Corrected Code & Best Practices)"]
+        PRAgent["PR Summary Agent<br/>(Review Verdict & Merge Checklist)"]
+        ChatAgent["Conversational Code Assistant<br/>(RAG Grounded in OWASP KB)"]
     end
 
     subgraph Core["Analysis & Validation Engines"]
@@ -66,14 +72,16 @@ flowchart TD
     ValidateRoute --> PyVal & JavVal
     AnalyzeRoute --> PyRules & JavRules
     OrchestrateRoute --> Orchestrator
-    Orchestrator --> CodeAgent & SecAgent
-    CodeAgent & SecAgent --> Merger
+    ChatRoute --> ChatAgent
+    RemediateRoute --> RemAgent
+    PRSummaryRoute --> PRAgent
+    Orchestrator --> CodeAgent & SecAgent & RemAgent & PRAgent
     KBSearchRoute --> VectorDB
     VectorDB --> Knowledge
+    ChatAgent --> VectorDB
     AIRoute --> AIProvider
     AIProvider --> VectorDB
     ReportRoute --> PDFGen
-    PDFGen --> AnalyzeRoute
 ```
 
 ---
@@ -110,14 +118,17 @@ SmartCodeInspect/
 │   │   ├── orchestrator.py          # Parallel multi-agent runner, deduplication, scoring
 │   │   ├── code_analysis_agent.py   # Code smells, complexity, AST & structural analysis
 │   │   ├── security_agent.py        # OWASP standards, CWE mapping, SSRF, path traversal
-│   │   └── ai_agent.py              # LLM Advisory provider (Gemini / Groq / Offline)
+│   │   ├── remediation_agent.py     # Milestone 3: Specific fix recommendations & corrected code
+│   │   ├── pr_summary_agent.py      # Milestone 3: PR review summary, merge readiness & markdown
+│   │   ├── conversational_agent.py  # Milestone 3: RAG-powered interactive code assistant
+│   │   └── ai_provider.py           # Multi-provider LLM Advisory (Gemini / Groq / Offline)
 │   ├── analyzers/               # Deterministic security rule implementations
 │   ├── knowledge_base/          # Ingestion pipelines & semantic hybrid retriever
 │   │   ├── ingest.py                # Document chunking, TF-IDF and ChromaDB ingestion
 │   │   └── retriever.py             # Hybrid vector retriever with query normalization
 │   ├── reports/                 # ReportLab PDF executive report generator
-│   ├── routes/                  # Modular Flask blueprints (health, validate, analyze, orchestrate)
-│   ├── tests/                   # 63 automated unit, agent & integration tests
+│   ├── routes/                  # Modular REST blueprints (health, validate, analyze, orchestrate, chat, remediate, pr_summary)
+│   ├── tests/                   # 82 automated unit, agent & Milestone 3 integration tests
 │   └── validators/              # AST parser & javac compiler subprocess wrappers
 │
 ├── frontend/                    # Modern React 19 + Vite 8 Dashboard
@@ -126,11 +137,20 @@ SmartCodeInspect/
 │   ├── vite.config.js           # Vite build and proxy configuration
 │   ├── public/                  # Static brand assets and SVGs
 │   └── src/
-│       ├── App.jsx              # Root reactive application component
+│       ├── App.jsx              # Root reactive application component with Apply Fix integration
 │       ├── main.jsx             # React DOM entry point
-│       ├── components/          # Dashboard panels (Editor, Findings, Diagnostics, etc.)
+│       ├── components/          # Dashboard panels & modals
+│       │   ├── EditorPanel.jsx          # Monaco/custom code editor with drag-and-drop file upload
+│       │   ├── FindingsPanel.jsx        # Findings portal with Unified Diff, Search/Sort, Apply to Editor
+│       │   ├── PRSummaryModal.jsx       # PR Review summary modal with interactive checklist & .md export
+│       │   ├── ConversationalAssistant.jsx # RAG assistant drawer with finding context & quick action prompts
+│       │   ├── DiagnosticsPanel.jsx     # Compiler diagnostics & syntax verification panel
+│       │   ├── KnowledgeBasePanel.jsx   # OWASP semantic search & vector retrieval panel
+│       │   ├── Header.jsx               # Navigation bar & brand title
+│       │   └── StatusBar.jsx            # Real-time backend health & agent service monitoring
 │       ├── constants/           # Sample code files (vulnerable and secure code)
-│       └── services/            # API communication services (REST & PDF downloads)
+│       ├── services/            # API communication services (REST & PDF downloads)
+│       └── utils/               # Universal clipboard & text manipulation utilities
 │
 └── knowledge_base/              # Authentic Security Standards & Indexes
     ├── documents/               # 15 Authentic OWASP Guidelines & Cheat Sheets (.md)
@@ -163,27 +183,41 @@ SmartCodeInspect/
 - **Security Vulnerability Agent**: Scans for OWASP Top 10 vulnerabilities, maps exact Common Weakness Enumerations (CWE-22, CWE-78, CWE-89, CWE-502, CWE-798, CWE-918), validates URL schemes/destinations for SSRF, detects path traversal with canonical containment checks, and tags exact line and column locations with evidence snippets.
 - **Unified Finding Aggregator**: Deduplicates overlapping findings using composite category keys, calculates bounded Quality Scores (0–100), and assigns independent Security Posture Grades (A through F).
 
-### 2. Zero-Execution Static Security
+### 2. Milestone 3 (Week 5–6): Remediation & PR Review Automation
+- **Remediation Agent**: Generates specific fix recommendations with production-grade corrected code examples and best practice explanations per finding. Includes an interactive **Unified Diff View** (`✨ Clean Code` vs `🔄 Unified Diff`) with red/green line visual contrast and a **`⚡ Apply to Editor`** button that replaces vulnerable lines in the active editor while preserving indentation.
+- **PR Summary Agent**: Compiles all multi-agent outputs into a structured pull request style review summary:
+  - **Verdict & Health Score**: Automated merge verdict (`Approved` vs `Changes Requested`), code quality score (0–100), and OWASP security posture grade.
+  - **Interactive Merge Readiness Checklist**: Stateful checklist with real-time percentage progress bar (`X/Y Completed`), item completion toggles, and celebration badge when 100% resolved.
+  - **Prioritized Fix Lists**: Granular P0 Blocker, P1 Important, and P2 Maintainability categorizations with inline `⚡ Apply to Editor` actions.
+  - **📥 Exportable Markdown Review Report**: One-click download of `${filename}_PULL_REQUEST_REVIEW.md` and direct clipboard copying for GitHub/GitLab PR comments.
+- **Findings Display Module**: Clean developer portal featuring severity-scored findings, CWE references, OWASP Top 10 mapping, live real-time search & filter bar, and multi-criteria sorting (by Severity, Line Number, or Rule ID).
+- **Conversational Code Assistant**: Interactive RAG-powered chat drawer grounded in the authentic **OWASP 2026 Knowledge Base**:
+  - **Active Finding Context Banner**: Binds selected finding's Rule ID, line, severity, and exact code evidence snippet.
+  - **3 One-Click Quick Actions**: `⚡ Explain Root Cause`, `🛡️ Generate Remediation Fix`, `🧪 Generate Unit Test`.
+  - **Dynamic Follow-Up Suggestion Chips**: Context-aware prompt suggestions displayed dynamically under assistant replies.
+  - **Direct Code Block Integration**: One-click `📋 Copy Code Snippet` and `⚡ Apply to Editor` buttons for assistant-generated patches.
+
+### 3. Zero-Execution Static Security
 - Analyzes Python and Java code purely through Abstract Syntax Tree (AST) parsing, compiler diagnostics, and deterministic inspection rules.
 - **Never executes** submitted code, never uses `eval()` or `exec()`, and isolates compiler invocations in temporary, non-executable directories.
 
-### 3. Real Java Compiler Diagnostics
+### 4. Real Java Compiler Diagnostics
 - Invokes `javac -d <temp> -Xlint:all` with automated public class name extraction and a strict 10-second timeout ceiling (`shell=False`).
 - Surfaces real compiler syntax errors, missing imports, unhandled exceptions, and deprecation notices with exact line and column coordinates.
 
-### 4. Hybrid OWASP Knowledge Base (OWASP 2026 Standard)
+### 5. Hybrid OWASP Knowledge Base (OWASP 2026 Standard)
 - Contains **10 comprehensive cheat sheets with at least 300 lines each** (spanning 327 to 462 lines), updated to the **2026 Edition (retrieved 2026-10-25)**.
 - Covers complete threat models, CWE classifications, vulnerable vs. secure code patterns in both Python 3.11+ and Java 17/21+, SAST detection rules, and security verification checklists.
 - Indexed across **521+ semantic chunks** into **ChromaDB** with a pure-Python TF-IDF vector space fallback engine (4,258 vocabulary terms).
 
-### 5. Multi-Provider AI Advisory with Explicit Disclosure
+### 6. Multi-Provider AI Advisory with Explicit Disclosure
 - Supports **Google Gemini** (`gemini-3.8-flash`) and **Groq** (`llama-3.1-8b-instant`) with automatic fallback to an **Offline Curated Advisory** mode.
 - Complies with strict privacy standards: user consent is requested before any finding metadata is transmitted externally.
 
-### 6. Executive PDF Audit Reports
+### 7. Executive PDF Audit Reports
 - Automatically builds downloadable, multi-page PDF inspection reports complete with executive metadata, severity distribution charts, finding evidence snippets, and OWASP references using ReportLab.
 
-### 7. Infosys Agile Deliverables (`Infosys_Agile_Docs/`)
+### 8. Infosys Agile Deliverables (`Infosys_Agile_Docs/`)
 - Bundled with complete Agile project management artifacts: Sprint Planning & User Stories (`Agile_Template_v0.1.xlsx`), Defect Tracking (`Defect_Tracker Template_v0.1.xlsx`), and Unit Test Coverage Plan (`Unit_Test_Plan_v0.1.xlsx`).
 
 ---
@@ -217,7 +251,7 @@ python -m pip install -r requirements.txt
 # Ingest and index the OWASP Knowledge Base into ChromaDB & TF-IDF
 python -c "from knowledge_base.ingest import run_ingestion; run_ingestion()"
 
-# Run all backend unit, agent & integration tests (63 tests)
+# Run all backend unit, agent & integration tests (82 tests)
 pytest -v
 
 # Start the Flask API server
@@ -290,6 +324,9 @@ GEMINI_COOLDOWN_SECONDS=2.0
 | `/api/validate` | `POST` | Validates syntax for Python (AST) or Java (`javac`) without executing code. |
 | `/api/analyze` | `POST` | Executes complete AST parsing and deterministic security rule inspection. |
 | `/api/orchestrate` | `POST` | Executes parallel multi-agent analysis (Code Analysis + Security Vulnerability agents) with unified findings and security grade. |
+| `/api/remediate` | `POST` | **Milestone 3**: Remediation Agent generates specific fix recommendations, corrected code, and best practices. |
+| `/api/pr-summary` | `POST` | **Milestone 3**: PR Summary Agent compiles review verdict, P0/P1 fix lists, merge checklist, and markdown report. |
+| `/api/chat` | `POST` | **Milestone 3**: Conversational Code Assistant Q&A grounded in OWASP knowledge base with citation linking. |
 | `/api/knowledge/status` | `GET` | Returns the indexing status and chunk counts of the OWASP knowledge base. |
 | `/api/knowledge/search` | `POST` | Queries the hybrid Vector Space Model (ChromaDB + TF-IDF) over authentic OWASP standards. |
 | `/api/ai/explain` | `POST` | Returns safe, structured educational advice for a specific vulnerability finding. |
@@ -304,13 +341,17 @@ GEMINI_COOLDOWN_SECONDS=2.0
 cd backend
 pytest -v
 ```
-* **63 passing tests** covering:
+* **82 passing tests** covering:
   - Python AST parsing and syntax diagnostics
   - Java compiler sandboxing and javac subprocess execution
   - Deterministic security rule detection (Python & Java)
   - Code Analysis Agent (code smells, complexity, anti-patterns, conventions)
   - Security Vulnerability Agent (OWASP compliance, CWE mappings, SSRF, path traversal)
   - Multi-Agent Orchestrator (parallel thread pools, timeout handling, error sanitization, deduplication, scoring)
+  - **Remediation Agent** (fix synthesis, corrected code generation, indentation formatting, best practices)
+  - **PR Summary Agent** (verdict decisioning, health scoring, prioritized fix lists, checklist generation, markdown export)
+  - **Conversational Code Assistant** (multi-turn conversation, RAG context retrieval, OWASP citations)
+  - **Milestone 3 End-to-End Orchestration** (multi-agent pipeline integration)
   - OWASP RAG Pipeline (chunking, TF-IDF vector indexing, ChromaDB retrieval)
   - ReportLab PDF generation
   - REST API endpoint contracts and JSON schema validation
@@ -320,7 +361,12 @@ pytest -v
 cd frontend
 npm test -- --run
 ```
-* **7 passing Vitest + React Testing Library suites** verifying UI rendering, language toggle, sample selection, syntax validation banners, finding cards, knowledge base querying, and offline error boundaries.
+* **14 passing Vitest + React Testing Library suites** verifying:
+  - Core application flow, AST diagnostics, and sample code workflows (`App.test.jsx`)
+  - **PR Summary Modal**: review verdict, health score calculation, interactive checklist progress tracker, and `.md` report download (`ReviewAndRemediation.test.jsx`)
+  - **Findings Panel**: severity scoring, live search filtering, sorting, Unified Diff view toggle, and one-click `⚡ Apply to Editor` (`ReviewAndRemediation.test.jsx`)
+  - **Conversational Assistant**: RAG OWASP citations, active finding context banner, 3 quick action prompts, and dynamic follow-up chips (`ReviewAndRemediation.test.jsx`)
+  - Drag-and-drop file upload on `EditorPanel` triggering real-time inspection (`ReviewAndRemediation.test.jsx`)
 
 ---
 

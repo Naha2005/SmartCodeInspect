@@ -294,3 +294,110 @@ Enforces OWASP Top 10 standards with exact location flagging, CWE mapping, and s
     - `Grade D`: 0 Critical, > 2 High findings
     - `Grade F`: Critical findings detected
 
+---
+
+## 9. Milestone 3: Remediation, PR Summary & Conversational RAG Architecture
+
+Milestone 3 completes the multi-agent vision by integrating automated remediation generation, pull-request-style review synthesis, and an authentic RAG-grounded conversational assistant.
+
+```mermaid
+flowchart TD
+    CodeSubmission["Client Code Submission\n(Python / Java)"] --> Orch["Multi-Agent Orchestrator"]
+
+    subgraph ParallelPhase["1. Concurrent Inspection Phase"]
+        Orch --> CodeAgent["🔍 Code Analysis Agent\n(Smells, Complexity, Anti-Patterns)"]
+        Orch --> SecAgent["🛡️ Security Vulnerability Agent\n(OWASP Top 10, CWE Mappings)"]
+    end
+
+    CodeAgent & SecAgent --> Merge["2. Unified Findings Merger & Deduplication"]
+
+    subgraph EnrichmentPhase["3. Remediation & Synthesis Phase"]
+        Merge --> RemAgent["🛠️ Remediation Agent\n- Specific Fix Recommendations\n- Corrected Code Examples\n- Best Practices & Diffs"]
+        RemAgent --> PRAgent["📋 PR Summary Agent\n- Executive Review Verdict\n- Prioritized Fix List (P0 / P1 / P2)\n- Merge Readiness Checklist\n- Markdown PR Comment"]
+    end
+
+    subgraph ConversationalRAG["4. RAG Conversational Code Assistant"]
+        UserQuery["Developer Query / Follow-up"] --> ChatAgent["🤖 Conversational Code Assistant"]
+        KB["OWASP 2026 Vector Index\n(ChromaDB + TF-IDF)"] -->|Semantic Passages| ChatAgent
+        ActiveContext["Active Source Code &\nFlagged Findings"] -->|Context Grounding| ChatAgent
+        ChatAgent --> GroundedResponse["Grounded Response\nwith OWASP Citations"]
+    end
+
+    PRAgent --> Portal["Developer Portal & Findings Registry"]
+    RemAgent --> Portal
+```
+
+### 9.1 Remediation Agent (`backend/agents/remediation_agent.py`)
+Generates concrete, actionable fix recommendations with syntax-valid code examples and best practice explanations for every flagged issue:
+- **Security Vulnerability Remediations**:
+  - `SEC-PY-001`: Replacement of `eval()` with `ast.literal_eval()` or structured dictionary operator dispatch.
+  - `SEC-PY-002` / `SEC-JV-002`: Safe process execution via argument lists (`subprocess.run(shell=False)` / `ProcessBuilder`).
+  - `SEC-PY-003` / `SEC-JV-001`: Parameterized queries with `?` placeholders (SQLite/JDBC) to eliminate SQL injection.
+  - `SEC-PY-004` / `SEC-JV-003`: Extraction of hardcoded API tokens to environment variables (`os.environ.get()` / `System.getenv()`).
+  - `SEC-PY-005` / `SEC-JV-004`: Safe deserialization using JSON / JEP 290 `ObjectInputFilter` class allowlisting.
+  - `SEC-PY-006` / `SEC-JV-005`: Cryptographic upgrade from deprecated MD5/SHA-1 to SHA-256 and salted PBKDF2/bcrypt.
+  - `SEC-PY-007` / `SEC-JV-006`: Path traversal containment with `is_relative_to()` and canonical Path validation.
+  - `SEC-PY-008`: SSRF protection via strict HTTPS scheme and allowed-destination host/IP filtering.
+  - `SEC-JV-007`: Insecure XML/XXE prevention via `disallow-doctype-decl`.
+- **Quality & Design Remediations**:
+  - `SMELL-PY-001` / `SMELL-JV-001`: Method extraction refactoring to decompose methods > 50 lines.
+  - `SMELL-PY-002` / `SMELL-JV-002`: Dataclass and Parameter Object refactoring for functions with > 5 parameters.
+  - `COMPLEX-PY-001` / `COMPLEX-JV-001`: Strategy pattern and table-driven dispatch replacing deep if-elif ladders.
+  - `DESIGN-PY-001`: Removal of mutable default arguments (`def f(x=None)`).
+  - `PRACTICE-PY-001` / `PRACTICE-JV-001`: Migration from raw console printing to structured logging.
+  - `PRACTICE-PY-002` / `PRACTICE-JV-002`: Context manager (`with open(...)`) and try-with-resources adoption.
+
+### 9.2 PR Summary Agent (`backend/agents/pr_summary_agent.py`)
+Compiles multi-agent outputs into a GitHub/GitLab-ready Pull Request review summary:
+- **Review Verdict**:
+  - `🔴 Changes Requested`: Critical/High vulnerabilities detected, or health score < 60.
+  - `🟡 Review Comments`: Medium findings or quality score < 85.
+  - `🟢 Approved`: Clean code passing all security and quality thresholds.
+- **Prioritized Fix List**:
+  - **P0 - Blockers**: Critical and High severity findings requiring mandatory remediation before merge.
+  - **P1 - Important**: Medium findings, resource leaks, complexity issues, and unhandled exceptions.
+  - **P2 - Maintainability**: Style, naming conventions, docstrings, and hygiene improvements.
+- **Merge Readiness Checklist**: Actionable markdown checkboxes reflecting every blocking item.
+- **Exportable PR Markdown**: Standard markdown output for automated CI/CD bot posting.
+
+### 9.3 Conversational Code Assistant (`backend/agents/conversational_agent.py`)
+RAG-powered conversational agent grounded in the indexed authentic OWASP 2026 knowledge base:
+- **Context Injection**: Incorporates the inspected source code, active findings, and file metadata.
+- **Hybrid Retrieval**: Queries ChromaDB vector database with TF-IDF fallback to extract matching OWASP sections.
+- **Dual Mode Generation**:
+  - *Cloud LLM Mode*: Communicates with Google Gemini or Groq using prompt shielding and anti-tamper constraints.
+  - *Offline RAG Engine*: Deterministic synthesis of retrieved OWASP cheat sheets, rule definitions, and remediation code blocks.
+- **Citations**: Returns exact document titles, sections, scores, and official OWASP URLs for all recommendations.
+
+### 9.4 Overall Code Health Score Formulation
+The platform computes a composite Overall Code Health Score ($0 \le H \le 100$):
+
+$$S_{\text{penalty}} = 50 \times N_{\text{crit}} + 25 \times N_{\text{high}} + 10 \times N_{\text{med}} + 2 \times (N_{\text{low}} + N_{\text{info}})$$
+
+$$S_{\text{security}} = \max(0, 100 - S_{\text{penalty}})$$
+
+$$H_{\text{raw}} = 0.65 \times S_{\text{security}} + 0.35 \times Q_{\text{quality}}$$
+
+$$\text{Health Score } H = \begin{cases} 
+\min(60, \text{round}(H_{\text{raw}})) & \text{if } N_{\text{crit}} > 0 \\
+\min(75, \text{round}(H_{\text{raw}})) & \text{if } N_{\text{crit}} = 0 \text{ and } N_{\text{high}} > 0 \\
+\max(0, \min(100, \text{round}(H_{\text{raw}}))) & \text{otherwise}
+\end{cases}$$
+
+### 9.5 Complete REST API Endpoints Specification
+
+| Method | Endpoint | Description | Request Payload | Response Schema |
+| :--- | :--- | :--- | :--- | :--- |
+| `GET` | `/api/health` | System health & agent status | None | `{"status", "java_compiler", "knowledge_base", "ai_integration"}` |
+| `POST` | `/api/validate` | Syntax & compiler verification | `{"language", "source_code", "filename"}` | `{"valid_syntax", "diagnostics", "message", "total_lines"}` |
+| `POST` | `/api/analyze` | Multi-agent inspection & findings | `{"language", "source_code", "filename"}` | `{"valid_syntax", "summary", "findings", "pr_summary", "diagnostics"}` |
+| `POST` | `/api/orchestrate` | Full parallel multi-agent audit | `{"language", "source_code", "filename"}` | `{"findings", "summary", "pr_summary", "orchestration"}` |
+| `POST` | `/api/chat` | Conversational Code Assistant Q&A | `{"query", "history", "context"}` | `{"success", "response", "citations", "provider", "model"}` |
+| `POST` | `/api/remediate` | Finding remediation generator | `{"finding", "source_code", "language"}` | `{"success", "remediation": {...}}` |
+| `POST` | `/api/pr-summary` | PR review summary compiler | `{"findings", "summary", "metadata"}` | `{"verdict", "overall_health_score", "prioritized_fix_list", "markdown"}` |
+| `GET` | `/api/knowledge/status` | Vector knowledge base status | None | `{"status", "chunks_count", "sources_count"}` |
+| `POST` | `/api/knowledge/search` | OWASP semantic vector search | `{"query", "top_k"}` | `{"query", "results": [...]}` |
+| `POST` | `/api/ai/explain` | AI finding explanation | `{"finding", "owasp_passages"}` | `{"success", "explanation", "provider", "model"}` |
+| `POST` | `/api/reports/pdf` | Downloadable PDF audit report | `{"analysis_data", "source_code", "language"}` | Binary PDF attachment (`application/pdf`) |
+
+

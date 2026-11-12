@@ -110,6 +110,7 @@ def analyze_java_source(
         "findings": findings,
         "summary": summary,
         "orchestration": orchestration,
+        "pr_summary": orchestration_result.get("pr_summary"),
         "total_lines": validation_result.get("total_lines", 0),
         "total_bytes": validation_result.get("total_bytes", 0)
     }

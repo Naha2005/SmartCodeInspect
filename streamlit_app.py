@@ -1,5 +1,6 @@
 import io
 import json
+# pyrefly: ignore [missing-import]
 import streamlit as st
 from pathlib import Path
 import sys
@@ -260,7 +261,13 @@ if "latest_analysis" in st.session_state:
 
                 col_mit, col_ai = st.columns([7, 3])
                 with col_mit:
-                    st.info(f"**Remediation:** {f.get('mitigation')}")
+                    rem = f.get("remediation")
+                    if rem and rem.get("corrected_code"):
+                        st.info(f"**Remediation Guidance:** {rem.get('recommendation', f.get('mitigation'))}")
+                        with st.expander("🛠️ View Corrected Code Example"):
+                            st.code(rem.get("corrected_code"), language=language.lower())
+                    else:
+                        st.info(f"**Remediation:** {f.get('mitigation')}")
                     if f.get("owasp_citations"):
                         st.caption(f"OWASP Standards: {', '.join(f.get('owasp_citations'))}")
 

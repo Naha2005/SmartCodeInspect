@@ -22,6 +22,10 @@ from analyzers.java_analyzer import analyze_java_source
 from knowledge_base.retriever import OWASPRetriever
 from knowledge_base.ingest import run_ingestion
 from agents.ai_provider import get_ai_explanation
+from agents.remediation_agent import get_remediation_agent
+from agents.pr_summary_agent import get_pr_summary_agent
+from agents.conversational_agent import get_conversational_assistant
+from agents.orchestrator import get_orchestrator
 from reports.pdf_generator import generate_pdf_report
 
 logger = logging.getLogger("smart_code_inspect")
@@ -72,6 +76,30 @@ class ReportPDFRequest(BaseModel):
     filename: Optional[str] = "inspected_source"
     analysis_data: Optional[Dict[str, Any]] = None
     ai_explanation: Optional[Dict[str, Any]] = None
+
+
+class ChatRequest(BaseModel):
+    query: str
+    history: Optional[List[Dict[str, Any]]] = Field(default_factory=list)
+    context: Optional[Dict[str, Any]] = Field(default_factory=dict)
+
+
+class RemediationRequest(BaseModel):
+    finding: Dict[str, Any]
+    source_code: Optional[str] = None
+    language: Optional[str] = None
+
+
+class PRSummaryRequest(BaseModel):
+    findings: Optional[List[Dict[str, Any]]] = Field(default_factory=list)
+    summary: Optional[Dict[str, Any]] = Field(default_factory=dict)
+    metadata: Optional[Dict[str, Any]] = Field(default_factory=dict)
+
+
+class OrchestrateRequest(BaseModel):
+    language: str
+    source_code: str
+    filename: Optional[str] = None
 
 
 # Endpoints
@@ -226,6 +254,78 @@ def download_pdf(req: ReportPDFRequest):
         )
     except Exception as exc:
         raise HTTPException(status_code=500, detail=f"Failed to generate PDF report: {str(exc)}")
+
+
+@app.post("/api/orchestrate")
+@app.post("/orchestrate")
+def orchestrate_code(req: OrchestrateRequest):
+    """Execute parallel multi-agent analysis (Code Analysis + Security + Remediation + PR Summary)."""
+    lang = req.language.strip().lower()
+    if lang not in ("python", "java"):
+        raise HTTPException(status_code=400, detail=f"Unsupported language '{lang}'.")
+    try:
+        orchestrator = get_orchestrator()
+        return orchestrator.run_parallel_analysis(
+            source_code=req.source_code,
+            language=lang,
+            filename=req.filename
+        )
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=f"Orchestration failed: {str(exc)}")
+
+
+@app.post("/api/chat")
+@app.post("/api/ai/chat")
+@app.post("/chat")
+def conversational_chat(req: ChatRequest):
+    """Conversational Code Assistant grounded in authentic OWASP knowledge base."""
+    if not req.query.strip():
+        raise HTTPException(status_code=400, detail="Query cannot be empty.")
+    try:
+        assistant = get_conversational_assistant()
+        return assistant.ask(
+            query=req.query,
+            history=req.history,
+            context=req.context
+        )
+    except Exception as exc:
+        return {
+            "success": False,
+            "error": str(exc),
+            "response": "An error occurred while answering your question.",
+            "citations": []
+        }
+
+
+@app.post("/api/remediate")
+@app.post("/remediate")
+def remediate_finding(req: RemediationRequest):
+    """Generate specific fix recommendation with corrected code example."""
+    try:
+        agent = get_remediation_agent()
+        remediation = agent.generate_remediation(
+            finding=req.finding,
+            source_code=req.source_code,
+            language=req.language
+        )
+        return {"success": True, "remediation": remediation}
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=str(exc))
+
+
+@app.post("/api/pr-summary")
+@app.post("/pr-summary")
+def pr_summary(req: PRSummaryRequest):
+    """Generate structured PR Review summary and markdown report."""
+    try:
+        agent = get_pr_summary_agent()
+        return agent.generate_pr_summary(
+            findings=req.findings,
+            summary=req.summary,
+            metadata=req.metadata
+        )
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=str(exc))
 
 
 if __name__ == "__main__":

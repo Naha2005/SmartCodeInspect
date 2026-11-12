@@ -1,5 +1,6 @@
 import React, { useRef, useState, useEffect } from 'react';
 import { SAMPLE_CODES } from '../constants/samples';
+import { copyToClipboard } from '../utils/clipboard';
 
 export function EditorPanel({
   language,
@@ -19,10 +20,24 @@ export function EditorPanel({
   analysisError
 }) {
   const fileInputRef = useRef(null);
+  const dragCounter = useRef(0);
   const [isDragging, setIsDragging] = useState(false);
   const [uploadInfo, setUploadInfo] = useState(null);
   const [showUploadedContent, setShowUploadedContent] = useState(true);
   const [copiedContent, setCopiedContent] = useState(false);
+
+  // Global window dragover/drop prevention to prevent browser navigating away on accidental outside drops
+  useEffect(() => {
+    const preventDefaults = (e) => {
+      e.preventDefault();
+    };
+    window.addEventListener('dragover', preventDefaults, false);
+    window.addEventListener('drop', preventDefaults, false);
+    return () => {
+      window.removeEventListener('dragover', preventDefaults, false);
+      window.removeEventListener('drop', preventDefaults, false);
+    };
+  }, []);
 
   // Maintain fresh onAnalyze closure using ref pattern to eliminate race conditions
   const onAnalyzeRef = useRef(onAnalyze);
@@ -100,7 +115,7 @@ export function EditorPanel({
       const lines = code.split('\n').length;
 
       if (detectedLang !== language) {
-        if (onLanguageChange) onLanguageChange(detectedLang);
+        if (onLanguageChange) onLanguageChange(detectedLang, true);
         else if (setLanguage) setLanguage(detectedLang);
       }
 
@@ -133,32 +148,69 @@ export function EditorPanel({
   };
 
   /* ── Drag-and-Drop handlers ── */
+  const handleDragEnter = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    dragCounter.current += 1;
+    if (e.dataTransfer?.items && e.dataTransfer.items.length > 0) {
+      setIsDragging(true);
+    } else if (e.dataTransfer?.files && e.dataTransfer.files.length > 0) {
+      setIsDragging(true);
+    }
+  };
+
   const handleDragOver = (e) => {
     e.preventDefault();
     e.stopPropagation();
-    setIsDragging(true);
+    try {
+      if (e.dataTransfer) {
+        e.dataTransfer.dropEffect = 'copy';
+      }
+    } catch {
+      // ignore
+    }
+    if (!isDragging) {
+      setIsDragging(true);
+    }
   };
 
   const handleDragLeave = (e) => {
     e.preventDefault();
     e.stopPropagation();
-    setIsDragging(false);
+    dragCounter.current -= 1;
+    if (dragCounter.current <= 0) {
+      dragCounter.current = 0;
+      setIsDragging(false);
+    }
   };
 
   const handleDrop = (e) => {
     e.preventDefault();
     e.stopPropagation();
+    dragCounter.current = 0;
     setIsDragging(false);
-    const file = e.dataTransfer?.files?.[0];
+
+    let file = null;
+    if (e.dataTransfer?.files && e.dataTransfer.files.length > 0) {
+      file = e.dataTransfer.files[0];
+    } else if (e.dataTransfer?.items && e.dataTransfer.items.length > 0) {
+      const item = e.dataTransfer.items[0];
+      if (item.kind === 'file') {
+        file = item.getAsFile();
+      }
+    }
+
     if (!file) return;
     processFile(file);
   };
 
-  const handleCopyUploadedContent = () => {
+  const handleCopyUploadedContent = async () => {
     if (!uploadInfo?.content) return;
-    navigator.clipboard.writeText(uploadInfo.content);
-    setCopiedContent(true);
-    setTimeout(() => setCopiedContent(false), 2000);
+    const success = await copyToClipboard(uploadInfo.content);
+    if (success) {
+      setCopiedContent(true);
+      setTimeout(() => setCopiedContent(false), 2000);
+    }
   };
 
   const linesCount = sourceCode.split('\n').length;
@@ -206,7 +258,21 @@ export function EditorPanel({
   const scanStatus = getUploadScanStatus();
 
   return (
-    <div className="glass-panel" style={{ padding: '24px' }} id="code-editor-panel">
+    <div
+      className="glass-panel"
+      style={{
+        padding: '24px',
+        position: 'relative',
+        transition: 'border-color 0.2s, box-shadow 0.2s',
+        borderColor: isDragging ? 'var(--accent-cyan)' : undefined,
+        boxShadow: isDragging ? '0 0 24px rgba(6, 182, 212, 0.25)' : undefined
+      }}
+      id="code-editor-panel"
+      onDragEnter={handleDragEnter}
+      onDragOver={handleDragOver}
+      onDragLeave={handleDragLeave}
+      onDrop={handleDrop}
+    >
       {/* Top Toolbar */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px', flexWrap: 'wrap', gap: '12px' }}>
         {/* Language Tabs */}
@@ -481,12 +547,13 @@ export function EditorPanel({
       {/* Code Editor — also a drag-and-drop drop zone */}
       <div
         className="editor-wrapper"
+        onDragEnter={handleDragEnter}
         onDragOver={handleDragOver}
         onDragLeave={handleDragLeave}
         onDrop={handleDrop}
         style={{
           outline: isDragging ? '2px dashed var(--accent-cyan)' : undefined,
-          boxShadow: isDragging ? '0 0 0 4px rgba(6,182,212,0.15)' : undefined,
+          boxShadow: isDragging ? '0 0 0 4px rgba(6,182,212,0.25)' : undefined,
           transition: 'outline 0.15s, box-shadow 0.15s',
           position: 'relative'
         }}
@@ -503,22 +570,29 @@ export function EditorPanel({
         {/* Drag overlay */}
         {isDragging && (
           <div
+            id="drag-drop-overlay"
             style={{
               position: 'absolute',
               inset: 0,
-              zIndex: 10,
+              zIndex: 30,
               display: 'flex',
               flexDirection: 'column',
               alignItems: 'center',
               justifyContent: 'center',
-              background: 'rgba(6, 182, 212, 0.08)',
-              pointerEvents: 'none'
+              background: 'rgba(10, 15, 30, 0.94)',
+              border: '2px dashed var(--accent-cyan)',
+              borderRadius: 'var(--radius-md)',
+              pointerEvents: 'none',
+              backdropFilter: 'blur(6px)'
             }}
           >
-            <span style={{ fontSize: '2.5rem' }}>📂</span>
-            <p style={{ color: 'var(--accent-cyan)', fontWeight: '700', marginTop: '8px', fontSize: '1rem' }}>
-              Drop .py or .java file to load &amp; scan
+            <span style={{ fontSize: '3.2rem' }}>📂</span>
+            <p style={{ color: 'var(--accent-cyan)', fontWeight: '800', marginTop: '10px', fontSize: '1.15rem' }}>
+              Drop Python (.py) or Java (.java) file here
             </p>
+            <span style={{ color: '#94a3b8', fontSize: '0.85rem', marginTop: '4px' }}>
+              Source will be immediately loaded and analyzed
+            </span>
           </div>
         )}
 
@@ -527,6 +601,8 @@ export function EditorPanel({
           className="code-textarea"
           value={sourceCode}
           onChange={(e) => setSourceCode(e.target.value)}
+          onDragOver={handleDragOver}
+          onDrop={handleDrop}
           placeholder="Paste or write your Python / Java code here, or drag-and-drop a .py / .java file onto this editor…"
           spellCheck="false"
         />

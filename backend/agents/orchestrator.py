@@ -11,15 +11,21 @@ try:
     from analyzers.rules.base_rule import Finding
     from agents.code_analysis_agent import CodeAnalysisAgent
     from agents.security_agent import SecurityVulnerabilityAgent
+    from agents.remediation_agent import RemediationAgent
+    from agents.pr_summary_agent import PRSummaryAgent
 except ImportError:
     try:
         from backend.analyzers.rules.base_rule import Finding
         from backend.agents.code_analysis_agent import CodeAnalysisAgent
         from backend.agents.security_agent import SecurityVulnerabilityAgent
+        from backend.agents.remediation_agent import RemediationAgent
+        from backend.agents.pr_summary_agent import PRSummaryAgent
     except ImportError:
         from ..analyzers.rules.base_rule import Finding
         from .code_analysis_agent import CodeAnalysisAgent
         from .security_agent import SecurityVulnerabilityAgent
+        from .remediation_agent import RemediationAgent
+        from .pr_summary_agent import PRSummaryAgent
 
 
 logger = logging.getLogger(__name__)
@@ -40,6 +46,8 @@ class MultiAgentOrchestrator:
 
         self.code_analysis_agent = CodeAnalysisAgent()
         self.security_agent = SecurityVulnerabilityAgent()
+        self.remediation_agent = RemediationAgent()
+        self.pr_summary_agent = PRSummaryAgent()
         self.timeout_seconds = timeout_seconds
 
     @staticmethod
@@ -278,8 +286,6 @@ class MultiAgentOrchestrator:
             if executor is not None:
                 executor.shutdown(wait=False, cancel_futures=True)
 
-        total_duration_ms = (time.perf_counter() - start) * 1000.0
-
         findings = self._merge_findings(
             code_findings,
             security_findings,
@@ -292,9 +298,46 @@ class MultiAgentOrchestrator:
             security_status=security_status,
         )
 
+        # Milestone 3: Enrich findings with specific fix recommendations and corrected code
+        remediation_start = time.perf_counter()
+        findings = self.remediation_agent.enrich_findings(
+            findings=findings,
+            source_code=source_code,
+            language=language
+        )
+        remediation_duration_ms = (time.perf_counter() - remediation_start) * 1000.0
+
+        # Milestone 3: Calculate composite code health score
+        crit = summary.get("critical", 0)
+        high = summary.get("high", 0)
+        med = summary.get("medium", 0)
+        low = summary.get("low", 0)
+        info = summary.get("informational", 0)
+        sec_penalty = (crit * 50.0) + (high * 25.0) + (med * 10.0) + ((low + info) * 2.0)
+        sec_health = max(0.0, 100.0 - sec_penalty)
+        quality_score = float(summary.get("code_quality_score", 100))
+        composite_health = (sec_health * 0.65) + (quality_score * 0.35)
+        if crit > 0:
+            composite_health = min(composite_health, 60.0)
+        elif high > 0:
+            composite_health = min(composite_health, 75.0)
+        summary["overall_code_health_score"] = max(0, min(100, round(composite_health)))
+
+        # Milestone 3: Compile comprehensive Pull Request style review summary
+        pr_start = time.perf_counter()
+        pr_summary = self.pr_summary_agent.generate_pr_summary(
+            findings=findings,
+            summary=summary,
+            metadata={"filename": filename or ("untitled.py" if language == "python" else "Untitled.java"), "language": language}
+        )
+        pr_duration_ms = (time.perf_counter() - pr_start) * 1000.0
+
+        total_duration_ms = (time.perf_counter() - start) * 1000.0
+
         return {
             "findings": findings,
             "summary": summary,
+            "pr_summary": pr_summary,
             "orchestration": {
                 "parallel_execution": True,
                 "timeout_seconds": self.timeout_seconds,
@@ -311,6 +354,18 @@ class MultiAgentOrchestrator:
                         "status": security_status,
                         "duration_ms": round(security_duration_ms, 2),
                         "findings_count": len(security_findings),
+                    },
+                    "remediation_agent": {
+                        "name": self.remediation_agent.name,
+                        "status": "completed",
+                        "duration_ms": round(remediation_duration_ms, 2),
+                        "remediations_generated": len(findings),
+                    },
+                    "pr_summary_agent": {
+                        "name": self.pr_summary_agent.name,
+                        "status": "completed",
+                        "duration_ms": round(pr_duration_ms, 2),
+                        "verdict": pr_summary.get("verdict", {}).get("decision", "APPROVED"),
                     },
                 },
                 "errors": errors,
