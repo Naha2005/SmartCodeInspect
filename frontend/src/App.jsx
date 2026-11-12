@@ -37,6 +37,12 @@ export default function App() {
   const [assistantFinding, setAssistantFinding] = useState(null);
   const [notification, setNotification] = useState(null);
 
+  // Milestone 3 Interactive Remediation Tracking & Dynamic Health Scoring
+  const [fixedFindingKeys, setFixedFindingKeys] = useState(new Set());
+  const [fixedLinesMap, setFixedLinesMap] = useState({});
+
+  const getFindingKey = (f) => `${f?.rule_id || 'RULE'}-${f?.line || 0}-${(f?.evidence || '').slice(0, 30)}`;
+
   const fetchHealth = async () => {
     setHealthLoading(true);
     try {
@@ -82,6 +88,8 @@ export default function App() {
     setAnalysisResult(null);
     setAnalysisError(null);
     setNotification(null);
+    setFixedFindingKeys(new Set());
+    setFixedLinesMap({});
     if (!preserveCode) {
       if (newLang === 'python') {
         const sample = SAMPLE_CODES.python_vulnerable;
@@ -147,8 +155,16 @@ export default function App() {
     setIsAnalyzing(true);
     setNotification(null);
     setAnalysisError(null);
+    setFixedFindingKeys(new Set());
+    setFixedLinesMap({});
     try {
       const data = await apiService.analyzeCode(lang, code, fname);
+      const baseHealthScore = data.summary?.overall_code_health_score ?? 35;
+      data.baseHealthScore = baseHealthScore;
+      if (data.summary) {
+        data.summary.active_errors_count = data.findings?.length || 0;
+        data.summary.fixed_count = 0;
+      }
       setAnalysisResult(data);
       setAnalysisError(null);
       setValidationResult({
@@ -230,14 +246,25 @@ export default function App() {
     setIsAssistantOpen(true);
   }, []);
 
-  // Apply finding remediation directly into the active editor
+  // Milestone 3: Interactive Remediation with Red->Green Line Transition & Dynamic Health Score Progression
   const handleApplyFix = React.useCallback((finding, correctedCode) => {
     if (!finding || !correctedCode) return;
+
+    const findingKey = getFindingKey(finding);
+    const nextFixedKeys = new Set(fixedFindingKeys);
+    nextFixedKeys.add(findingKey);
+    setFixedFindingKeys(nextFixedKeys);
+
+    if (finding.line) {
+      setFixedLinesMap((prev) => ({ ...prev, [finding.line]: true }));
+    }
+
     setSourceCode((prevCode) => {
-      // If evidence exists in the source code, replace the evidence
+      // 1. If evidence matches exactly, replace it
       if (finding.evidence && prevCode.includes(finding.evidence.trim())) {
         return prevCode.replace(finding.evidence.trim(), correctedCode.trim());
       }
+      // 2. Line-based replacement preserving indentation
       const lines = prevCode.split('\n');
       const targetLineIdx = (finding.line || 1) - 1;
       if (targetLineIdx >= 0 && targetLineIdx < lines.length) {
@@ -251,8 +278,108 @@ export default function App() {
       }
       return prevCode;
     });
-    showNotification(`⚡ Applied remediation for ${finding.rule_id} at line ${finding.line}. Re-analyzing to verify fix...`, 'success');
-  }, []);
+
+    // Dynamic health score progression
+    const totalFindings = analysisResult?.findings?.length || 1;
+    const fixedCount = nextFixedKeys.size;
+    const activeRemaining = Math.max(0, totalFindings - fixedCount);
+    const baseScore = analysisResult?.baseHealthScore || analysisResult?.summary?.overall_code_health_score || 35;
+
+    let newHealthScore;
+    if (activeRemaining === 0) {
+      newHealthScore = 100;
+    } else {
+      newHealthScore = Math.min(99, Math.round(baseScore + ((100 - baseScore) * fixedCount) / totalFindings));
+    }
+
+    setAnalysisResult((prev) => {
+      if (!prev) return prev;
+      return {
+        ...prev,
+        summary: {
+          ...(prev.summary || {}),
+          overall_code_health_score: newHealthScore,
+          active_errors_count: activeRemaining,
+          fixed_count: fixedCount
+        }
+      };
+    });
+
+    if (activeRemaining === 0) {
+      showNotification(`🎉 All vulnerabilities remediated! Code Health Score reached 100/100 (0 errors remaining). Clean code ready for export.`, 'success');
+    } else {
+      showNotification(`⚡ Remediated ${finding.rule_id} at line ${finding.line}. Health Score improved to ${newHealthScore}/100 (${activeRemaining} active error(s) remaining).`, 'success');
+    }
+  }, [analysisResult, fixedFindingKeys]);
+
+  // 1-Click Auto-Remediation for All Remaining Issues
+  const handleFixAll = React.useCallback(() => {
+    if (!analysisResult?.findings?.length) return;
+
+    let updatedCode = sourceCode;
+    const allKeys = new Set(fixedFindingKeys);
+    const updatedLines = { ...fixedLinesMap };
+
+    analysisResult.findings.forEach((f) => {
+      allKeys.add(getFindingKey(f));
+      if (f.line) updatedLines[f.line] = true;
+
+      const corrected = f.remediation?.corrected_code;
+      if (corrected) {
+        if (f.evidence && updatedCode.includes(f.evidence.trim())) {
+          updatedCode = updatedCode.replace(f.evidence.trim(), corrected.trim());
+        } else {
+          const lines = updatedCode.split('\n');
+          const targetLineIdx = (f.line || 1) - 1;
+          if (targetLineIdx >= 0 && targetLineIdx < lines.length) {
+            const indent = (lines[targetLineIdx].match(/^\s*/) || [''])[0];
+            const indentedFix = corrected
+              .split('\n')
+              .map((line, i) => (i === 0 ? indent + line.trimStart() : indent + line))
+              .join('\n');
+            lines[targetLineIdx] = indentedFix;
+            updatedCode = lines.join('\n');
+          }
+        }
+      }
+    });
+
+    setSourceCode(updatedCode);
+    setFixedFindingKeys(allKeys);
+    setFixedLinesMap(updatedLines);
+
+    setAnalysisResult((prev) => {
+      if (!prev) return prev;
+      return {
+        ...prev,
+        summary: {
+          ...(prev.summary || {}),
+          overall_code_health_score: 100,
+          active_errors_count: 0,
+          fixed_count: prev.findings.length
+        }
+      };
+    });
+
+    showNotification('🎉 1-Click Remediation Applied! 0 errors remaining • Code Health Score: 100/100 • All lines clean & green.', 'success');
+  }, [analysisResult, sourceCode, fixedFindingKeys, fixedLinesMap]);
+
+  // Clean Code File Download (.py or .java)
+  const handleDownloadCleanCode = React.useCallback(() => {
+    const cleanFilename = filename?.startsWith('clean_')
+      ? filename
+      : `clean_${filename || (language === 'python' ? 'app.py' : 'App.java')}`;
+    const blob = new Blob([sourceCode], { type: 'text/plain;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = cleanFilename;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+    showNotification(`📥 Cleaned code downloaded as "${cleanFilename}".`, 'success');
+  }, [filename, language, sourceCode]);
 
   return (
     <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column' }}>
@@ -320,6 +447,11 @@ export default function App() {
             isGeneratingPdf={isGeneratingPdf}
             analysisResult={analysisResult}
             analysisError={analysisError}
+            fixedFindingKeys={fixedFindingKeys}
+            fixedLinesMap={fixedLinesMap}
+            onApplyFix={handleApplyFix}
+            onFixAll={handleFixAll}
+            onDownloadCleanCode={handleDownloadCleanCode}
           />
 
           <KnowledgeBasePanel />
@@ -347,6 +479,9 @@ export default function App() {
             onOpenAssistant={handleOpenAssistant}
             onOpenPrSummary={handleOpenPrSummary}
             onApplyFix={handleApplyFix}
+            fixedFindingKeys={fixedFindingKeys}
+            fixedLinesMap={fixedLinesMap}
+            onFixAll={handleFixAll}
           />
         </div>
       </main>

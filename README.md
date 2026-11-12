@@ -220,6 +220,13 @@ SmartCodeInspect/
 ### 8. Infosys Agile Deliverables (`Infosys_Agile_Docs/`)
 - Bundled with complete Agile project management artifacts: Sprint Planning & User Stories (`Agile_Template_v0.1.xlsx`), Defect Tracking (`Defect_Tracker Template_v0.1.xlsx`), and Unit Test Coverage Plan (`Unit_Test_Plan_v0.1.xlsx`).
 
+### 9. Interactive Line-by-Line Code Inspector & Remediation Workflow
+- **Red Error Line Highlighting**: Vulnerable lines are immediately marked with red gutter badges and warning highlights following automated AST analysis.
+- **Interactive "Apply Fix" Line Transition**: Clicking "⚡ Fix Line" or "⚡ Apply to Editor" replaces the vulnerable line with the Remediation Agent's secure code and instantly transitions the highlight from **red to green** (`✅ Corrected / Remediated`).
+- **Dynamic Code Health Score Progression**: As issues are resolved one by one, the overall code health score increases incrementally towards **100/100**.
+- **Zero-Error Resolution**: Once all vulnerabilities are remediated, active error count reaches **0** and health score reaches **100/100** with celebratory clean code confirmation.
+- **Clean Code Export & Clipboard Copy**: Dedicated one-click actions to download clean Python (`.py`) or Java (`.java`) source files and copy the entire defect-free code directly to the clipboard.
+
 ---
 
 ## 🚀 Quickstart Guide

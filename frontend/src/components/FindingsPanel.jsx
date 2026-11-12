@@ -20,7 +20,10 @@ export function FindingsPanel({
   onSelectForAI,
   onOpenAssistant,
   onOpenPrSummary,
-  onApplyFix
+  onApplyFix,
+  fixedFindingKeys = new Set(),
+  fixedLinesMap = {},
+  onFixAll
 }) {
   const [filterType, setFilterType] = useState('ALL');
   const [expandedRemediations, setExpandedRemediations] = useState({});
@@ -179,6 +182,32 @@ export function FindingsPanel({
 
       {/* Severity & Metrics Bar */}
       <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', alignItems: 'center', marginBottom: '14px' }}>
+        {hasScanned && (
+          <span
+            className="badge"
+            style={{
+              background: (summary?.active_errors_count === 0 && findings.length > 0) ? 'rgba(34, 197, 94, 0.25)' : 'rgba(239, 68, 68, 0.25)',
+              color: (summary?.active_errors_count === 0 && findings.length > 0) ? '#4ade80' : '#fca5a5',
+              border: (summary?.active_errors_count === 0 && findings.length > 0) ? '1px solid rgba(34, 197, 94, 0.45)' : '1px solid rgba(239, 68, 68, 0.45)',
+              fontWeight: '700'
+            }}
+          >
+            {summary?.active_errors_count === 0 && findings.length > 0 ? '🎉 0 Active Errors' : `🔴 Active Errors: ${summary?.active_errors_count ?? (findings.length - (fixedFindingKeys?.size || 0))}`}
+          </span>
+        )}
+        {hasScanned && ((fixedFindingKeys?.size || 0) > 0 || (summary?.fixed_count || 0) > 0) && (
+          <span
+            className="badge"
+            style={{
+              background: 'rgba(34, 197, 94, 0.2)',
+              color: '#4ade80',
+              border: '1px solid rgba(34, 197, 94, 0.4)',
+              fontWeight: '700'
+            }}
+          >
+            🟢 Remediated: {summary?.fixed_count ?? (fixedFindingKeys?.size || 0)}
+          </span>
+        )}
         {hasScanned && summary?.security_findings_count !== undefined && (
           <span className="badge" style={{ background: 'rgba(239, 68, 68, 0.2)', color: '#f87171', border: '1px solid rgba(239,68,68,0.4)' }}>
             🛡️ Security: {summary.security_findings_count}
@@ -380,9 +409,18 @@ export function FindingsPanel({
             const isRemediationOpen = expandedRemediations[idx] !== false; // open by default
             const remediation = finding.remediation;
             const isDiffActive = Boolean(diffViewIndex[idx]);
+            const findingKey = `${finding.rule_id || 'RULE'}-${finding.line || 0}-${(finding.evidence || '').slice(0, 30)}`;
+            const isFixed = fixedFindingKeys?.has(findingKey) || fixedLinesMap?.[finding.line];
 
             return (
-              <div key={`${finding.rule_id}-${finding.line}-${idx}`} className="finding-card">
+              <div
+                key={`${finding.rule_id}-${finding.line}-${idx}`}
+                className="finding-card"
+                style={{
+                  border: isFixed ? '1px solid rgba(34, 197, 94, 0.45)' : undefined,
+                  boxShadow: isFixed ? '0 0 14px rgba(34, 197, 94, 0.1)' : undefined
+                }}
+              >
                 {/* Finding Top Row */}
                 <div className="finding-header">
                   <div>
@@ -390,6 +428,21 @@ export function FindingsPanel({
                       <span className={`badge ${getSeverityBadgeClass(finding.severity)}`}>
                         {finding.severity?.toUpperCase()}
                       </span>
+
+                      {/* Remediation Status Pill */}
+                      {isFixed && (
+                        <span
+                          className="badge"
+                          style={{
+                            background: 'rgba(34, 197, 94, 0.2)',
+                            color: '#4ade80',
+                            border: '1px solid rgba(34, 197, 94, 0.45)',
+                            fontWeight: '700'
+                          }}
+                        >
+                          ✅ Remediated &amp; Fixed
+                        </span>
+                      )}
 
                       {/* Agent Pill */}
                       <span className="badge" style={getAgentBadgeStyle(finding.agent)}>
@@ -551,13 +604,13 @@ export function FindingsPanel({
                                   style={{
                                     padding: '3px 8px',
                                     fontSize: '0.72rem',
-                                    background: 'rgba(6, 182, 212, 0.15)',
-                                    borderColor: 'rgba(6, 182, 212, 0.35)',
-                                    color: 'var(--accent-cyan)'
+                                    background: isFixed ? 'rgba(34, 197, 94, 0.18)' : 'rgba(6, 182, 212, 0.15)',
+                                    borderColor: isFixed ? 'rgba(34, 197, 94, 0.4)' : 'rgba(6, 182, 212, 0.35)',
+                                    color: isFixed ? '#4ade80' : 'var(--accent-cyan)'
                                   }}
                                   title="Replace vulnerable line in active editor with this secure code"
                                 >
-                                  {appliedIndex === idx ? '⚡ Applied!' : '⚡ Apply to Editor'}
+                                  {isFixed ? '✅ Remediated' : appliedIndex === idx ? '⚡ Applied!' : '⚡ Apply to Editor'}
                                 </button>
                               )}
 

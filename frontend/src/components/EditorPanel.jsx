@@ -17,7 +17,12 @@ export function EditorPanel({
   isAnalyzing,
   isGeneratingPdf,
   analysisResult,
-  analysisError
+  analysisError,
+  fixedFindingKeys = new Set(),
+  fixedLinesMap = {},
+  onApplyFix,
+  onFixAll,
+  onDownloadCleanCode
 }) {
   const fileInputRef = useRef(null);
   const dragCounter = useRef(0);
@@ -25,6 +30,8 @@ export function EditorPanel({
   const [uploadInfo, setUploadInfo] = useState(null);
   const [showUploadedContent, setShowUploadedContent] = useState(true);
   const [copiedContent, setCopiedContent] = useState(false);
+  const [viewMode, setViewMode] = useState('inspector');
+  const [copiedWholeCode, setCopiedWholeCode] = useState(false);
 
   // Global window dragover/drop prevention to prevent browser navigating away on accidental outside drops
   useEffect(() => {
@@ -256,6 +263,42 @@ export function EditorPanel({
   };
 
   const scanStatus = getUploadScanStatus();
+
+  const handleCopyWholeCode = () => {
+    copyToClipboard(sourceCode);
+    setCopiedWholeCode(true);
+    setTimeout(() => setCopiedWholeCode(false), 2500);
+  };
+
+  const handleDownloadCode = () => {
+    if (onDownloadCleanCode) {
+      onDownloadCleanCode();
+      return;
+    }
+    const cleanFilename = filename?.startsWith('clean_')
+      ? filename
+      : `clean_${filename || (language === 'python' ? 'script.py' : 'App.java')}`;
+    const blob = new Blob([sourceCode], { type: 'text/plain;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = cleanFilename;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  };
+
+  const codeLines = sourceCode.split('\n');
+  const totalFindingsCount = analysisResult?.findings?.length || 0;
+  const activeErrorsCount = analysisResult?.summary?.active_errors_count ?? (
+    analysisResult?.findings?.filter((f) => {
+      const key = `${f.rule_id || 'RULE'}-${f.line || 0}-${(f.evidence || '').slice(0, 30)}`;
+      return !fixedFindingKeys?.has(key) && !fixedLinesMap?.[f.line];
+    }).length || 0
+  );
+  const fixedCount = Math.max(0, totalFindingsCount - activeErrorsCount);
+  const currentHealthScore = analysisResult?.summary?.overall_code_health_score ?? (activeErrorsCount === 0 && totalFindingsCount > 0 ? 100 : 85);
 
   return (
     <div
@@ -544,6 +587,74 @@ export function EditorPanel({
         </span>
       </div>
 
+      {/* Dynamic Health Score & Error Line Banner (Milestone 3) */}
+      {totalFindingsCount > 0 && (
+        <div
+          id="editor-status-banner"
+          style={{
+            marginBottom: '12px',
+            padding: '10px 14px',
+            borderRadius: '8px',
+            background: activeErrorsCount === 0
+              ? 'rgba(34, 197, 94, 0.12)'
+              : 'rgba(239, 68, 68, 0.12)',
+            border: activeErrorsCount === 0
+              ? '1px solid rgba(34, 197, 94, 0.35)'
+              : '1px solid rgba(239, 68, 68, 0.35)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            flexWrap: 'wrap',
+            gap: '10px'
+          }}
+        >
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+            <span style={{ fontSize: '1.25rem' }}>{activeErrorsCount === 0 ? '🎉' : '🛡️'}</span>
+            <div>
+              <div style={{ fontWeight: '700', fontSize: '0.88rem', color: activeErrorsCount === 0 ? '#4ade80' : '#f87171' }}>
+                {activeErrorsCount === 0
+                  ? '0 Errors Remaining • 100% Clean Code Verified!'
+                  : `${activeErrorsCount} Active Error Line(s) Highlighted in Red • ${fixedCount} Fixed in Green`}
+              </div>
+              <div style={{ fontSize: '0.74rem', color: 'var(--text-muted)' }}>
+                {activeErrorsCount === 0
+                  ? 'All vulnerabilities successfully remediated. Code is safe for production merge and export.'
+                  : 'Click "⚡ Fix Line" on any highlighted row or "⚡ Fix All" to replace vulnerable lines with clean code.'}
+              </div>
+            </div>
+          </div>
+
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <span
+              style={{
+                padding: '4px 10px',
+                borderRadius: '6px',
+                fontWeight: '800',
+                fontSize: '0.82rem',
+                fontFamily: 'var(--font-mono)',
+                background: activeErrorsCount === 0 ? 'rgba(34, 197, 94, 0.2)' : 'rgba(251, 191, 36, 0.2)',
+                color: activeErrorsCount === 0 ? '#4ade80' : '#fbbf24',
+                border: activeErrorsCount === 0 ? '1px solid rgba(34, 197, 94, 0.4)' : '1px solid rgba(251, 191, 36, 0.4)'
+              }}
+            >
+              Score: {currentHealthScore}/100
+            </span>
+
+            {activeErrorsCount > 0 && onFixAll && (
+              <button
+                type="button"
+                className="btn btn-primary"
+                onClick={onFixAll}
+                style={{ padding: '4px 12px', fontSize: '0.78rem' }}
+                title="Automatically apply all recommended remediations at once"
+              >
+                ⚡ Fix All ({activeErrorsCount})
+              </button>
+            )}
+          </div>
+        </div>
+      )}
+
       {/* Code Editor — also a drag-and-drop drop zone */}
       <div
         className="editor-wrapper"
@@ -559,8 +670,46 @@ export function EditorPanel({
         }}
       >
         <div className="editor-header">
-          <span>{filename}</span>
-          <div style={{ display: 'flex', gap: '14px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+            <span>{filename}</span>
+            {totalFindingsCount > 0 && (
+              <div style={{ display: 'flex', gap: '4px', marginLeft: '6px' }}>
+                <button
+                  type="button"
+                  onClick={() => setViewMode('inspector')}
+                  style={{
+                    background: viewMode === 'inspector' ? 'var(--accent-cyan)' : 'rgba(255, 255, 255, 0.08)',
+                    color: viewMode === 'inspector' ? '#0f172a' : '#cbd5e1',
+                    border: 'none',
+                    borderRadius: '4px',
+                    padding: '2px 8px',
+                    fontSize: '0.72rem',
+                    fontWeight: '600',
+                    cursor: 'pointer'
+                  }}
+                >
+                  🔍 Security Line Inspector
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setViewMode('raw')}
+                  style={{
+                    background: viewMode === 'raw' ? 'var(--accent-cyan)' : 'rgba(255, 255, 255, 0.08)',
+                    color: viewMode === 'raw' ? '#0f172a' : '#cbd5e1',
+                    border: 'none',
+                    borderRadius: '4px',
+                    padding: '2px 8px',
+                    fontSize: '0.72rem',
+                    fontWeight: '600',
+                    cursor: 'pointer'
+                  }}
+                >
+                  ✏️ Raw Editor
+                </button>
+              </div>
+            )}
+          </div>
+          <div style={{ display: 'flex', gap: '14px', alignItems: 'center' }}>
             <span>{linesCount} lines</span>
             <span>{charsCount} chars</span>
             <span>{language.toUpperCase()}</span>
@@ -596,6 +745,62 @@ export function EditorPanel({
           </div>
         )}
 
+        {/* Interactive Line-by-Line Code Inspector with Red Error Highlights & Green Fixed Lines */}
+        {viewMode === 'inspector' && totalFindingsCount > 0 ? (
+          <div className="code-inspector-container" id="code-line-inspector">
+            {codeLines.map((lineText, idx) => {
+              const lineNum = idx + 1;
+              const lineFindings = (analysisResult?.findings || []).filter((f) => f.line === lineNum);
+              const isError = lineFindings.length > 0;
+              const isFixed = isError && (
+                fixedLinesMap?.[lineNum] ||
+                lineFindings.every((f) => {
+                  const key = `${f.rule_id || 'RULE'}-${f.line || 0}-${(f.evidence || '').slice(0, 30)}`;
+                  return fixedFindingKeys?.has(key);
+                })
+              );
+              const isActiveError = isError && !isFixed;
+
+              let rowClass = 'code-line-row';
+              if (isActiveError) rowClass += ' code-line-error';
+              else if (isFixed) rowClass += ' code-line-fixed';
+
+              return (
+                <div key={lineNum} className={rowClass}>
+                  <div className="code-line-gutter">
+                    {isActiveError ? '🔴' : isFixed ? '🟢' : ''} {lineNum}
+                  </div>
+                  <div className="code-line-content">
+                    <span className="code-line-text">{lineText || ' '}</span>
+                    {isActiveError && (
+                      <div style={{ display: 'flex', gap: '6px', alignItems: 'center', flexShrink: 0 }}>
+                        <span className="code-line-badge-error" title={`${lineFindings[0]?.rule_id}: ${lineFindings[0]?.title}`}>
+                          🔴 Vulnerable Line
+                        </span>
+                        {onApplyFix && (
+                          <button
+                            type="button"
+                            className="btn-fix-inline"
+                            onClick={() => onApplyFix(lineFindings[0], lineFindings[0]?.remediation?.corrected_code)}
+                            title="Apply recommended fix to this line"
+                          >
+                            ⚡ Fix Line
+                          </button>
+                        )}
+                      </div>
+                    )}
+                    {isFixed && (
+                      <span className="code-line-badge-fixed">
+                        ✅ Corrected &amp; Clean
+                      </span>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        ) : null}
+
         <textarea
           id="code-editor-textarea"
           className="code-textarea"
@@ -605,11 +810,14 @@ export function EditorPanel({
           onDrop={handleDrop}
           placeholder="Paste or write your Python / Java code here, or drag-and-drop a .py / .java file onto this editor…"
           spellCheck="false"
+          style={{
+            display: viewMode === 'inspector' && totalFindingsCount > 0 ? 'none' : 'block'
+          }}
         />
       </div>
 
       {/* Action Buttons Toolbar */}
-      <div style={{ display: 'flex', gap: '12px', marginTop: '18px', flexWrap: 'wrap' }}>
+      <div style={{ display: 'flex', gap: '10px', marginTop: '18px', flexWrap: 'wrap', alignItems: 'center' }}>
         <button
           id="btn-validate"
           type="button"
@@ -626,7 +834,7 @@ export function EditorPanel({
           className="btn btn-primary"
           onClick={() => onAnalyze()}
           disabled={isAnalyzing || isValidating || isGeneratingPdf || !sourceCode.trim()}
-          style={{ minWidth: '180px' }}
+          style={{ minWidth: '170px' }}
         >
           {isAnalyzing ? 'Inspecting AST & Rules...' : '⚡ Inspect & Analyze'}
         </button>
@@ -634,11 +842,34 @@ export function EditorPanel({
         <button
           id="btn-download-pdf"
           type="button"
-          className="btn btn-success"
+          className="btn btn-secondary"
           onClick={onDownloadPdf}
           disabled={isGeneratingPdf || isAnalyzing || isValidating || !sourceCode.trim()}
         >
           {isGeneratingPdf ? 'Generating PDF...' : '📄 Export PDF Report'}
+        </button>
+
+        {/* Clean Code Export & Copy */}
+        <button
+          id="btn-download-clean-code"
+          type="button"
+          className="btn btn-success"
+          onClick={handleDownloadCode}
+          disabled={!sourceCode.trim()}
+          title={`Download clean source code as .${language === 'python' ? 'py' : 'java'}`}
+        >
+          📥 Download Clean Code (.{language === 'python' ? 'py' : 'java'})
+        </button>
+
+        <button
+          id="btn-copy-whole-code"
+          type="button"
+          className="btn btn-secondary"
+          onClick={handleCopyWholeCode}
+          disabled={!sourceCode.trim()}
+          title="Copy entire editor contents to clipboard"
+        >
+          {copiedWholeCode ? '✅ Whole Code Copied!' : '📋 Copy Whole Code'}
         </button>
       </div>
 

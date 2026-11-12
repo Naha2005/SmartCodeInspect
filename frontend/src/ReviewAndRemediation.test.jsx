@@ -393,5 +393,101 @@ describe('AI Code Review, Remediation & Conversational Assistant Suite', () => {
     expect(screen.getByRole('button', { name: /Generate Remediation Fix/i })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /Generate Unit Test/i })).toBeInTheDocument();
   });
+
+  it('highlights error lines in red, transitions to green upon applying fix, and displays clean code export buttons in EditorPanel', async () => {
+    const onApplyFix = vi.fn();
+    const mockFinding = {
+      rule_id: 'SEC-PY-001',
+      title: 'Unsafe Dynamic Code Execution',
+      line: 2,
+      severity: 'Critical',
+      evidence: 'eval(user_input)',
+      remediation: {
+        corrected_code: 'ast.literal_eval(user_input)'
+      }
+    };
+
+    const mockAnalysisResult = {
+      findings: [mockFinding],
+      summary: {
+        total_findings: 1,
+        active_errors_count: 1,
+        overall_code_health_score: 45
+      }
+    };
+
+    const { rerender, container } = render(
+      <EditorPanel
+        language="python"
+        sourceCode={`import ast\neval(user_input)\nprint('done')`}
+        setSourceCode={vi.fn()}
+        filename="vulnerable.py"
+        setFilename={vi.fn()}
+        onLanguageChange={vi.fn()}
+        onValidate={vi.fn()}
+        onAnalyze={vi.fn()}
+        onDownloadPdf={vi.fn()}
+        isValidating={false}
+        isAnalyzing={false}
+        isGeneratingPdf={false}
+        analysisResult={mockAnalysisResult}
+        fixedFindingKeys={new Set()}
+        fixedLinesMap={{}}
+        onApplyFix={onApplyFix}
+      />
+    );
+
+    // Error line should be highlighted with red styling class
+    const errorLine = container.querySelector('.code-line-error');
+    expect(errorLine).toBeInTheDocument();
+    expect(screen.getByText(/🔴 Vulnerable Line/i)).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /⚡ Fix Line/i })).toBeInTheDocument();
+
+    // Verify clean code download and copy buttons exist
+    const downloadCleanBtn = screen.getByRole('button', { name: /Download Clean Code/i });
+    const copyWholeBtn = screen.getByRole('button', { name: /Copy Whole Code/i });
+    expect(downloadCleanBtn).toBeInTheDocument();
+    expect(copyWholeBtn).toBeInTheDocument();
+
+    // Trigger inline fix button
+    fireEvent.click(screen.getByRole('button', { name: /⚡ Fix Line/i }));
+    expect(onApplyFix).toHaveBeenCalledWith(mockFinding, 'ast.literal_eval(user_input)');
+
+    // Now re-render as fixed
+    const fixedKeys = new Set([`SEC-PY-001-2-eval(user_input)`]);
+    rerender(
+      <EditorPanel
+        language="python"
+        sourceCode={`import ast\nast.literal_eval(user_input)\nprint('done')`}
+        setSourceCode={vi.fn()}
+        filename="vulnerable.py"
+        setFilename={vi.fn()}
+        onLanguageChange={vi.fn()}
+        onValidate={vi.fn()}
+        onAnalyze={vi.fn()}
+        onDownloadPdf={vi.fn()}
+        isValidating={false}
+        isAnalyzing={false}
+        isGeneratingPdf={false}
+        analysisResult={{
+          ...mockAnalysisResult,
+          summary: {
+            total_findings: 1,
+            active_errors_count: 0,
+            overall_code_health_score: 100
+          }
+        }}
+        fixedFindingKeys={fixedKeys}
+        fixedLinesMap={{ 2: true }}
+        onApplyFix={onApplyFix}
+      />
+    );
+
+    // Should transition to green styling
+    const fixedLine = container.querySelector('.code-line-fixed');
+    expect(fixedLine).toBeInTheDocument();
+    expect(screen.getByText(/✅ Corrected & Clean/i)).toBeInTheDocument();
+    expect(screen.getByText(/0 Errors Remaining • 100% Clean Code Verified!/i)).toBeInTheDocument();
+  });
 });
 
