@@ -209,12 +209,26 @@ export function FindingsPanel({
           </span>
         )}
         {hasScanned && summary?.security_findings_count !== undefined && (
-          <span className="badge" style={{ background: 'rgba(239, 68, 68, 0.2)', color: '#f87171', border: '1px solid rgba(239,68,68,0.4)' }}>
+          <span
+            className="badge"
+            style={{
+              background: summary.security_findings_count === 0 ? 'rgba(34, 197, 94, 0.2)' : 'rgba(239, 68, 68, 0.2)',
+              color: summary.security_findings_count === 0 ? '#4ade80' : '#f87171',
+              border: `1px solid ${summary.security_findings_count === 0 ? 'rgba(34,197,94,0.4)' : 'rgba(239,68,68,0.4)'}`
+            }}
+          >
             🛡️ Security: {summary.security_findings_count}
           </span>
         )}
         {hasScanned && summary?.code_quality_findings_count !== undefined && (
-          <span className="badge" style={{ background: 'rgba(56, 189, 248, 0.2)', color: '#38bdf8', border: '1px solid rgba(56,189,248,0.4)' }}>
+          <span
+            className="badge"
+            style={{
+              background: summary.code_quality_findings_count === 0 ? 'rgba(34, 197, 94, 0.2)' : 'rgba(56, 189, 248, 0.2)',
+              color: summary.code_quality_findings_count === 0 ? '#4ade80' : '#38bdf8',
+              border: `1px solid ${summary.code_quality_findings_count === 0 ? 'rgba(34,197,94,0.4)' : 'rgba(56,189,248,0.4)'}`
+            }}
+          >
             🔍 Quality: {summary.code_quality_findings_count}
           </span>
         )}
@@ -227,19 +241,39 @@ export function FindingsPanel({
           <span
             className="badge"
             style={{
-              background: summary.security_posture.startsWith('A') ? 'rgba(16, 185, 129, 0.2)' : 'rgba(239, 68, 68, 0.2)',
-              color: summary.security_posture.startsWith('A') ? '#34d399' : '#f87171',
-              border: `1px solid ${summary.security_posture.startsWith('A') ? 'rgba(16, 185, 129, 0.4)' : 'rgba(239, 68, 68, 0.4)'}`
+              background: (summary.security_posture.includes('A') || summary.active_errors_count === 0) ? 'rgba(16, 185, 129, 0.2)' : 'rgba(239, 68, 68, 0.2)',
+              color: (summary.security_posture.includes('A') || summary.active_errors_count === 0) ? '#34d399' : '#f87171',
+              border: `1px solid ${(summary.security_posture.includes('A') || summary.active_errors_count === 0) ? 'rgba(16, 185, 129, 0.4)' : 'rgba(239, 68, 68, 0.4)'}`
             }}
             title={`Security Posture: ${summary.security_posture}`}
           >
-            🛡️ Grade: {summary.security_posture.split(' ')[0]}
+            🛡️ Grade: {summary.active_errors_count === 0 || summary.security_posture.includes('A+') ? 'A+' : summary.security_posture.includes('A') ? 'A' : (summary.security_posture.split(' ')[1] || summary.security_posture.split(' ')[0])}
           </span>
         )}
-        <span className="badge badge-critical">Critical: {hasScanned ? summary?.critical || 0 : 0}</span>
-        <span className="badge badge-high">High: {hasScanned ? summary?.high || 0 : 0}</span>
-        <span className="badge badge-medium">Medium: {hasScanned ? summary?.medium || 0 : 0}</span>
-        <span className="badge badge-low">Low: {hasScanned ? summary?.low || 0 : 0}</span>
+        <span
+          className={`badge ${summary?.critical === 0 ? 'badge-low' : 'badge-critical'}`}
+          style={summary?.critical === 0 ? { background: 'rgba(34, 197, 94, 0.18)', color: '#4ade80', border: '1px solid rgba(34, 197, 94, 0.35)' } : undefined}
+        >
+          Critical: {hasScanned ? summary?.critical || 0 : 0}
+        </span>
+        <span
+          className={`badge ${summary?.high === 0 ? 'badge-low' : 'badge-high'}`}
+          style={summary?.high === 0 ? { background: 'rgba(34, 197, 94, 0.18)', color: '#4ade80', border: '1px solid rgba(34, 197, 94, 0.35)' } : undefined}
+        >
+          High: {hasScanned ? summary?.high || 0 : 0}
+        </span>
+        <span
+          className={`badge ${summary?.medium === 0 ? 'badge-low' : 'badge-medium'}`}
+          style={summary?.medium === 0 ? { background: 'rgba(34, 197, 94, 0.18)', color: '#4ade80', border: '1px solid rgba(34, 197, 94, 0.35)' } : undefined}
+        >
+          Medium: {hasScanned ? summary?.medium || 0 : 0}
+        </span>
+        <span
+          className="badge badge-low"
+          style={summary?.low === 0 ? { background: 'rgba(34, 197, 94, 0.18)', color: '#4ade80', border: '1px solid rgba(34, 197, 94, 0.35)' } : undefined}
+        >
+          Low: {hasScanned ? summary?.low || 0 : 0}
+        </span>
       </div>
 
       {/* Filter Tabs — only show active if scanned */}

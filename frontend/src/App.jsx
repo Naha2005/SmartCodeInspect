@@ -246,6 +246,156 @@ export default function App() {
     setIsAssistantOpen(true);
   }, []);
 
+  // Helper to dynamically recompute all live metrics, active counts, and PR summary review when findings are fixed
+  const computeDynamicMetrics = React.useCallback((findings, fixedKeys, fixedLines, baseScore = 35) => {
+    const totalFindings = findings?.length || 0;
+    const activeFindings = [];
+    const remediatedFindings = [];
+
+    (findings || []).forEach((f) => {
+      const key = getFindingKey(f);
+      if (fixedKeys.has(key) || (f.line && fixedLines[f.line])) {
+        remediatedFindings.push(f);
+      } else {
+        activeFindings.push(f);
+      }
+    });
+
+    const activeCount = activeFindings.length;
+    const fixedCount = remediatedFindings.length;
+
+    const activeCritical = activeFindings.filter((f) => f.severity === 'Critical').length;
+    const activeHigh = activeFindings.filter((f) => f.severity === 'High').length;
+    const activeMedium = activeFindings.filter((f) => f.severity === 'Medium').length;
+    const activeLow = activeFindings.filter((f) => ['Low', 'Informational'].includes(f.severity)).length;
+    const activeSecurity = activeFindings.filter((f) => f.agent === 'Security Vulnerability Agent').length;
+    const activeQuality = activeFindings.filter((f) => f.agent === 'Code Analysis Agent').length;
+
+    let overallHealthScore;
+    if (activeCount === 0 && totalFindings > 0) {
+      overallHealthScore = 100;
+    } else if (totalFindings === 0) {
+      overallHealthScore = 100;
+    } else {
+      overallHealthScore = Math.min(99, Math.round(baseScore + ((100 - baseScore) * fixedCount) / totalFindings));
+    }
+
+    let qualityScore;
+    if (activeQuality === 0) {
+      qualityScore = 100;
+    } else {
+      qualityScore = Math.max(30, 100 - (activeQuality * 10));
+    }
+
+    let securityPosture;
+    if (activeCount === 0) {
+      securityPosture = 'Grade A+ (Clean & Secure)';
+    } else if (activeCritical > 0) {
+      securityPosture = 'Grade F (Critical Risk)';
+    } else if (activeHigh > 0) {
+      securityPosture = 'Grade D (High Risk)';
+    } else if (activeMedium > 0) {
+      securityPosture = 'Grade C (Moderate Risk)';
+    } else {
+      securityPosture = 'Grade B (Low Risk)';
+    }
+
+    let verdict;
+    if (activeCritical > 0) {
+      verdict = {
+        decision: 'CHANGES_REQUESTED',
+        label: '🔴 Changes Requested',
+        reason: `Blocked: ${activeCritical} Critical vulnerability finding(s) detected. All Critical findings must be remediated before this pull request can be merged.`
+      };
+    } else if (activeHigh > 0) {
+      verdict = {
+        decision: 'CHANGES_REQUESTED',
+        label: '🔴 Changes Requested',
+        reason: `Blocked: ${activeHigh} High-severity finding(s) detected. High-severity security risks must be remediated prior to merge.`
+      };
+    } else if (activeMedium > 0) {
+      verdict = {
+        decision: 'COMMENT',
+        label: '🟡 Review Comments & Hardening Needed',
+        reason: `${activeMedium} Medium-severity finding(s) remaining. Resolution of recommendations is advised before production deployment.`
+      };
+    } else {
+      verdict = {
+        decision: 'APPROVED',
+        label: '🟢 Approved',
+        reason: activeCount === 0
+          ? 'All vulnerabilities and code smells successfully remediated! Code is 100% clean and approved for production merge.'
+          : 'All critical and high security blockers remediated. Approved for merge.'
+      };
+    }
+
+    let mergeChecklist;
+    if (activeCount === 0) {
+      mergeChecklist = [
+        '✅ All Critical vulnerabilities remediated',
+        '✅ All High & Medium security flaws corrected',
+        '✅ Clean AST & static analysis verified (0 active errors)',
+        '✅ Pull request approved for production merge'
+      ];
+    } else {
+      mergeChecklist = activeFindings.slice(0, 8).map((f) => `Resolve blocker: ${f.title} (${f.rule_id}) at line ${f.line}`);
+    }
+
+    const p0Blockers = activeFindings.filter((f) => ['Critical', 'High'].includes(f.severity));
+    const p1Important = activeFindings.filter((f) => f.severity === 'Medium');
+    const p2Maintainability = activeFindings.filter((f) => ['Low', 'Informational'].includes(f.severity));
+
+    const updatedSummary = {
+      total_findings: totalFindings,
+      active_errors_count: activeCount,
+      fixed_count: fixedCount,
+      critical: activeCritical,
+      high: activeHigh,
+      medium: activeMedium,
+      low: activeLow,
+      security_findings_count: activeSecurity,
+      code_quality_findings_count: activeQuality,
+      overall_code_health_score: overallHealthScore,
+      code_quality_score: qualityScore,
+      security_posture: securityPosture
+    };
+
+    const updatedPrSummary = {
+      filename,
+      language,
+      overall_health_score: overallHealthScore,
+      code_quality_score: qualityScore,
+      security_posture: securityPosture,
+      verdict,
+      severity_breakdown: {
+        critical: activeCritical,
+        high: activeHigh,
+        medium: activeMedium,
+        low: activeLow,
+        total: activeCount
+      },
+      prioritized_fix_list: {
+        p0_blockers: p0Blockers,
+        p1_important: p1Important,
+        p2_maintainability: p2Maintainability
+      },
+      merge_checklist: mergeChecklist,
+      markdown: [
+        `# 📋 Pull Request Review Summary: ${filename || 'inspected_file'}`,
+        `**Target File:** \`${filename || 'inspected_file'}\` (${language?.toUpperCase() || 'PYTHON'})`,
+        `**Verdict:** ${verdict.label} — ${verdict.reason}`,
+        `**Health Score:** ${overallHealthScore}/100 | **Quality Score:** ${qualityScore}/100 | **Security Posture:** ${securityPosture}`,
+        `**Active Remaining Defects:** ${activeCount} (Critical: ${activeCritical}, High: ${activeHigh}, Medium: ${activeMedium}, Low: ${activeLow})`,
+        `**Remediated Findings:** ${fixedCount} of ${totalFindings} resolved`,
+        '',
+        `## 📝 Merge Readiness Checklist`,
+        ...mergeChecklist.map((item) => `- [${activeCount === 0 ? 'x' : ' '}] ${item}`)
+      ].join('\n')
+    };
+
+    return { updatedSummary, updatedPrSummary };
+  }, [filename, language]);
+
   // Milestone 3: Interactive Remediation with Red->Green Line Transition & Dynamic Health Score Progression
   const handleApplyFix = React.useCallback((finding, correctedCode) => {
     if (!finding || !correctedCode) return;
@@ -255,8 +405,10 @@ export default function App() {
     nextFixedKeys.add(findingKey);
     setFixedFindingKeys(nextFixedKeys);
 
+    let nextFixedLines = fixedLinesMap;
     if (finding.line) {
-      setFixedLinesMap((prev) => ({ ...prev, [finding.line]: true }));
+      nextFixedLines = { ...fixedLinesMap, [finding.line]: true };
+      setFixedLinesMap(nextFixedLines);
     }
 
     setSourceCode((prevCode) => {
@@ -279,38 +431,28 @@ export default function App() {
       return prevCode;
     });
 
-    // Dynamic health score progression
-    const totalFindings = analysisResult?.findings?.length || 1;
-    const fixedCount = nextFixedKeys.size;
-    const activeRemaining = Math.max(0, totalFindings - fixedCount);
-    const baseScore = analysisResult?.baseHealthScore || analysisResult?.summary?.overall_code_health_score || 35;
-
-    let newHealthScore;
-    if (activeRemaining === 0) {
-      newHealthScore = 100;
-    } else {
-      newHealthScore = Math.min(99, Math.round(baseScore + ((100 - baseScore) * fixedCount) / totalFindings));
-    }
+    const { updatedSummary, updatedPrSummary } = computeDynamicMetrics(
+      analysisResult?.findings,
+      nextFixedKeys,
+      nextFixedLines,
+      analysisResult?.baseHealthScore || analysisResult?.summary?.overall_code_health_score || 35
+    );
 
     setAnalysisResult((prev) => {
       if (!prev) return prev;
       return {
         ...prev,
-        summary: {
-          ...(prev.summary || {}),
-          overall_code_health_score: newHealthScore,
-          active_errors_count: activeRemaining,
-          fixed_count: fixedCount
-        }
+        summary: updatedSummary,
+        pr_summary: updatedPrSummary
       };
     });
 
-    if (activeRemaining === 0) {
-      showNotification(`🎉 All vulnerabilities remediated! Code Health Score reached 100/100 (0 errors remaining). Clean code ready for export.`, 'success');
+    if (updatedSummary.active_errors_count === 0) {
+      showNotification(`🎉 All vulnerabilities remediated! Code Health Score reached 100/100 (0 errors remaining). PR Approved for merge.`, 'success');
     } else {
-      showNotification(`⚡ Remediated ${finding.rule_id} at line ${finding.line}. Health Score improved to ${newHealthScore}/100 (${activeRemaining} active error(s) remaining).`, 'success');
+      showNotification(`⚡ Remediated ${finding.rule_id} at line ${finding.line}. Health Score improved to ${updatedSummary.overall_code_health_score}/100 (${updatedSummary.active_errors_count} active error(s) remaining).`, 'success');
     }
-  }, [analysisResult, fixedFindingKeys]);
+  }, [analysisResult, fixedFindingKeys, fixedLinesMap, computeDynamicMetrics]);
 
   // 1-Click Auto-Remediation for All Remaining Issues
   const handleFixAll = React.useCallback(() => {
@@ -348,21 +490,24 @@ export default function App() {
     setFixedFindingKeys(allKeys);
     setFixedLinesMap(updatedLines);
 
+    const { updatedSummary, updatedPrSummary } = computeDynamicMetrics(
+      analysisResult?.findings,
+      allKeys,
+      updatedLines,
+      analysisResult?.baseHealthScore || 35
+    );
+
     setAnalysisResult((prev) => {
       if (!prev) return prev;
       return {
         ...prev,
-        summary: {
-          ...(prev.summary || {}),
-          overall_code_health_score: 100,
-          active_errors_count: 0,
-          fixed_count: prev.findings.length
-        }
+        summary: updatedSummary,
+        pr_summary: updatedPrSummary
       };
     });
 
-    showNotification('🎉 1-Click Remediation Applied! 0 errors remaining • Code Health Score: 100/100 • All lines clean & green.', 'success');
-  }, [analysisResult, sourceCode, fixedFindingKeys, fixedLinesMap]);
+    showNotification('🎉 1-Click Remediation Applied! 0 errors remaining • Code Health Score: 100/100 • PR Review Approved for merge.', 'success');
+  }, [analysisResult, sourceCode, fixedFindingKeys, fixedLinesMap, computeDynamicMetrics]);
 
   // Clean Code File Download (.py or .java)
   const handleDownloadCleanCode = React.useCallback(() => {

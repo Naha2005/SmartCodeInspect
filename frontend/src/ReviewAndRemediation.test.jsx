@@ -489,5 +489,63 @@ describe('AI Code Review, Remediation & Conversational Assistant Suite', () => {
     expect(screen.getByText(/✅ Corrected & Clean/i)).toBeInTheDocument();
     expect(screen.getByText(/0 Errors Remaining • 100% Clean Code Verified!/i)).toBeInTheDocument();
   });
+
+  it('dynamically renders Approved verdict, Grade A+ posture, and 100% checklist when remediated in PRSummaryModal', () => {
+    const remediatedPrSummary = {
+      filename: 'vulnerable_service.py',
+      language: 'python',
+      overall_health_score: 100,
+      code_quality_score: 100,
+      security_posture: 'Grade A+ (Clean & Secure)',
+      verdict: {
+        decision: 'APPROVED',
+        label: '🟢 Approved',
+        reason: 'All vulnerabilities and code smells successfully remediated! Code is 100% clean and approved for production merge.'
+      },
+      severity_breakdown: {
+        critical: 0,
+        high: 0,
+        medium: 0,
+        low: 0,
+        total: 0
+      },
+      prioritized_fix_list: {
+        p0_blockers: [],
+        p1_important: [],
+        p2_maintainability: []
+      },
+      merge_checklist: [
+        '✅ All Critical vulnerabilities remediated',
+        '✅ All High & Medium security flaws corrected'
+      ]
+    };
+
+    render(
+      <PRSummaryModal
+        prSummary={remediatedPrSummary}
+        summary={{
+          total_findings: 14,
+          active_errors_count: 0,
+          fixed_count: 14,
+          critical: 0,
+          high: 0,
+          medium: 0,
+          low: 0,
+          overall_code_health_score: 100,
+          security_posture: 'Grade A+ (Clean & Secure)'
+        }}
+        filename="vulnerable_service.py"
+        language="python"
+        onClose={vi.fn()}
+      />
+    );
+
+    // Verify Approved verdict banner and 100/100 health score
+    expect(screen.getByText(/🟢 Approved/i)).toBeInTheDocument();
+    expect(screen.getByText(/All vulnerabilities and code smells successfully remediated!/i)).toBeInTheDocument();
+    expect(screen.getAllByText(/100\/100/i).length).toBeGreaterThan(0);
+    expect(screen.getByText(/Grade A\+/i)).toBeInTheDocument();
+    expect(screen.getByText(/2\/2 \(100%\)/i)).toBeInTheDocument();
+  });
 });
 

@@ -94,15 +94,25 @@ export function PRSummaryModal({
     setTimeout(() => setDownloaded(false), 2500);
   };
 
-  const completedCount = checklist.filter((_, idx) => !!checkedItems[idx]).length;
+  const isApproved = verdict.decision === 'APPROVED' || healthScore === 100;
+  const isItemChecked = (item, idx) => {
+    if (checkedItems[idx] !== undefined) return checkedItems[idx];
+    if (isApproved || (typeof item === 'string' && item.startsWith('✅'))) return true;
+    return false;
+  };
+
+  const completedCount = checklist.filter((item, idx) => isItemChecked(item, idx)).length;
   const checklistProgress = checklist.length > 0 ? Math.round((completedCount / checklist.length) * 100) : 100;
   const isAllChecked = checklist.length > 0 && completedCount === checklist.length;
 
   const handleToggleChecklist = (idx) => {
-    setCheckedItems((prev) => ({
-      ...prev,
-      [idx]: !prev[idx]
-    }));
+    setCheckedItems((prev) => {
+      const current = prev[idx] !== undefined ? prev[idx] : isItemChecked(checklist[idx], idx);
+      return {
+        ...prev,
+        [idx]: !current
+      };
+    });
   };
 
   const handleCheckAll = () => {
@@ -465,33 +475,36 @@ export function PRSummaryModal({
                     </div>
                   ) : (
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', flex: 1, overflowY: 'auto', maxHeight: '180px', paddingRight: '4px' }}>
-                      {checklist.map((item, idx) => (
-                        <label
-                          key={idx}
-                          style={{
-                            display: 'flex',
-                            alignItems: 'flex-start',
-                            gap: '10px',
-                            fontSize: '0.83rem',
-                            color: checkedItems[idx] ? '#94a3b8' : '#e2e8f0',
-                            textDecoration: checkedItems[idx] ? 'line-through' : 'none',
-                            background: checkedItems[idx] ? 'rgba(16, 185, 129, 0.05)' : 'rgba(255, 255, 255, 0.03)',
-                            padding: '8px 12px',
-                            borderRadius: '6px',
-                            border: checkedItems[idx] ? '1px solid rgba(16, 185, 129, 0.2)' : '1px solid rgba(255, 255, 255, 0.05)',
-                            cursor: 'pointer',
-                            transition: 'all 0.15s ease'
-                          }}
-                        >
-                          <input
-                            type="checkbox"
-                            checked={!!checkedItems[idx]}
-                            onChange={() => handleToggleChecklist(idx)}
-                            style={{ accentColor: '#10b981', marginTop: '2px', cursor: 'pointer' }}
-                          />
-                          <span style={{ lineHeight: 1.4 }}>{item}</span>
-                        </label>
-                      ))}
+                      {checklist.map((item, idx) => {
+                        const checked = isItemChecked(item, idx);
+                        return (
+                          <label
+                            key={idx}
+                            style={{
+                              display: 'flex',
+                              alignItems: 'flex-start',
+                              gap: '10px',
+                              fontSize: '0.83rem',
+                              color: checked ? '#86efac' : '#e2e8f0',
+                              textDecoration: (!isApproved && checked) ? 'line-through' : 'none',
+                              background: checked ? 'rgba(16, 185, 129, 0.08)' : 'rgba(255, 255, 255, 0.03)',
+                              padding: '8px 12px',
+                              borderRadius: '6px',
+                              border: checked ? '1px solid rgba(16, 185, 129, 0.25)' : '1px solid rgba(255, 255, 255, 0.05)',
+                              cursor: 'pointer',
+                              transition: 'all 0.15s ease'
+                            }}
+                          >
+                            <input
+                              type="checkbox"
+                              checked={checked}
+                              onChange={() => handleToggleChecklist(idx)}
+                              style={{ accentColor: '#10b981', marginTop: '2px', cursor: 'pointer' }}
+                            />
+                            <span style={{ lineHeight: 1.4 }}>{item}</span>
+                          </label>
+                        );
+                      })}
                     </div>
                   )}
                 </div>
