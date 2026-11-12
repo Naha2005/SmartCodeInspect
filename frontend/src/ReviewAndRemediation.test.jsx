@@ -547,5 +547,152 @@ describe('AI Code Review, Remediation & Conversational Assistant Suite', () => {
     expect(screen.getByText(/Grade A\+/i)).toBeInTheDocument();
     expect(screen.getByText(/2\/2 \(100%\)/i)).toBeInTheDocument();
   });
+
+  it('highlights syntax issues in yellow, displays ⚡ Fix Syntax button, transitions to blue when fixed, and renders 4-color legend', async () => {
+    const onFixDiagnostic = vi.fn();
+    const mockDiag = {
+      severity: 'warning',
+      line: 2,
+      column: 15,
+      message: '[deprecation] exec(String) in Runtime has been deprecated',
+      evidence: 'Runtime.getRuntime().exec(cmd);'
+    };
+
+    const mockValidation = {
+      valid_syntax: false,
+      diagnostics: [mockDiag],
+      message: '1 compilation diagnostic reported.'
+    };
+
+    const { rerender, container } = render(
+      <EditorPanel
+        language="java"
+        sourceCode={`public class App {\n  Runtime.getRuntime().exec(cmd);\n}`}
+        setSourceCode={vi.fn()}
+        filename="App.java"
+        setFilename={vi.fn()}
+        onLanguageChange={vi.fn()}
+        onValidate={vi.fn()}
+        onAnalyze={vi.fn()}
+        onDownloadPdf={vi.fn()}
+        isValidating={false}
+        isAnalyzing={false}
+        isGeneratingPdf={false}
+        analysisResult={null}
+        validationResult={mockValidation}
+        fixedSyntaxDiagnosticKeys={new Set()}
+        fixedSyntaxLinesMap={{}}
+        onFixDiagnostic={onFixDiagnostic}
+      />
+    );
+
+    // Active syntax error line should be highlighted in Yellow
+    const syntaxErrorLine = container.querySelector('.code-line-syntax-error');
+    expect(syntaxErrorLine).toBeInTheDocument();
+    expect(screen.getByText(/🟡 Syntax Issue/i)).toBeInTheDocument();
+
+    const fixSyntaxBtn = screen.getByRole('button', { name: /⚡ Fix Syntax/i });
+    expect(fixSyntaxBtn).toBeInTheDocument();
+    fireEvent.click(fixSyntaxBtn);
+    expect(onFixDiagnostic).toHaveBeenCalledWith(mockDiag);
+
+    // Verify color legend renders at bottom
+    expect(screen.getByText(/🎨 Color Legend:/i)).toBeInTheDocument();
+    expect(screen.getByText(/🔴 Red: Active Vulnerability/i)).toBeInTheDocument();
+    expect(screen.getByText(/🟢 Green: Remediated Vulnerability/i)).toBeInTheDocument();
+    expect(screen.getByText(/🟡 Yellow: Syntax \/ Compiler Error/i)).toBeInTheDocument();
+    expect(screen.getByText(/🔵 Blue: Corrected Syntax/i)).toBeInTheDocument();
+
+    // Rerender as fixed
+    const diagKey = `syntax-2-${mockDiag.message}`;
+    rerender(
+      <EditorPanel
+        language="java"
+        sourceCode={`public class App {\n  new ProcessBuilder("sh", "-c", cmd).start();\n}`}
+        setSourceCode={vi.fn()}
+        filename="App.java"
+        setFilename={vi.fn()}
+        onLanguageChange={vi.fn()}
+        onValidate={vi.fn()}
+        onAnalyze={vi.fn()}
+        onDownloadPdf={vi.fn()}
+        isValidating={false}
+        isAnalyzing={false}
+        isGeneratingPdf={false}
+        analysisResult={null}
+        validationResult={mockValidation}
+        fixedSyntaxDiagnosticKeys={new Set([diagKey])}
+        fixedSyntaxLinesMap={{ 2: true }}
+        onFixDiagnostic={onFixDiagnostic}
+      />
+    );
+
+    // Fixed syntax line should be highlighted in Blue
+    const syntaxFixedLine = container.querySelector('.code-line-syntax-fixed');
+    expect(syntaxFixedLine).toBeInTheDocument();
+    expect(screen.getByText(/🔵 Syntax Validated & Fixed/i)).toBeInTheDocument();
+  });
+
+  it('synchronizes sample dropdown selection with language tabs (turning Java button blue)', async () => {
+    const onLanguageChange = vi.fn();
+    const setLanguage = vi.fn();
+    const setFilename = vi.fn();
+    const setSourceCode = vi.fn();
+
+    const { rerender } = render(
+      <EditorPanel
+        language="python"
+        setLanguage={setLanguage}
+        onLanguageChange={onLanguageChange}
+        sourceCode="import os"
+        setSourceCode={setSourceCode}
+        filename="vulnerable_service.py"
+        setFilename={setFilename}
+        onValidate={vi.fn()}
+        onAnalyze={vi.fn()}
+        onDownloadPdf={vi.fn()}
+        isValidating={false}
+        isAnalyzing={false}
+        isGeneratingPdf={false}
+      />
+    );
+
+    // Python button is primary (blue) and Java button is secondary
+    const pythonBtn = screen.getByRole('button', { name: /Python \(AST\)/i });
+    const javaBtn = screen.getByRole('button', { name: /Java \(javac\)/i });
+    expect(pythonBtn).toHaveClass('btn-primary');
+    expect(javaBtn).toHaveClass('btn-secondary');
+
+    // Select Java Vulnerable in dropdown
+    const select = screen.getByRole('combobox');
+    fireEvent.change(select, { target: { value: 'java_vulnerable' } });
+
+    expect(onLanguageChange).toHaveBeenCalledWith('java', true);
+    expect(setLanguage).toHaveBeenCalledWith('java');
+    expect(setFilename).toHaveBeenCalledWith('LegacyPortalService.java');
+
+    // Rerender with language="java"
+    rerender(
+      <EditorPanel
+        language="java"
+        setLanguage={setLanguage}
+        onLanguageChange={onLanguageChange}
+        sourceCode="import java.io.*;"
+        setSourceCode={setSourceCode}
+        filename="LegacyPortalService.java"
+        setFilename={setFilename}
+        onValidate={vi.fn()}
+        onAnalyze={vi.fn()}
+        onDownloadPdf={vi.fn()}
+        isValidating={false}
+        isAnalyzing={false}
+        isGeneratingPdf={false}
+      />
+    );
+
+    // Now Java button is primary (blue) and Python button is secondary
+    expect(screen.getByRole('button', { name: /Java \(javac\)/i })).toHaveClass('btn-primary');
+    expect(screen.getByRole('button', { name: /Python \(AST\)/i })).toHaveClass('btn-secondary');
+  });
 });
 

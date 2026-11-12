@@ -1,6 +1,13 @@
 import React from 'react';
 
-export function DiagnosticsPanel({ validationResult, isValidating, onValidate }) {
+export function DiagnosticsPanel({
+  validationResult,
+  isValidating,
+  onValidate,
+  onFixDiagnostic,
+  fixedSyntaxDiagnosticKeys = new Set(),
+  fixedSyntaxLinesMap = {}
+}) {
   // Active validating state
   if (isValidating) {
     return (
@@ -130,35 +137,67 @@ export function DiagnosticsPanel({ validationResult, isValidating, onValidate })
 
       {diagnostics.length > 0 && (
         <div style={{ marginTop: '14px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
-          {diagnostics.map((diag, idx) => (
-            <div
-              key={idx}
-              style={{
-                background: 'rgba(0, 0, 0, 0.4)',
-                padding: '10px 14px',
-                borderRadius: '6px',
-                border: '1px solid var(--border-subtle)',
-                fontSize: '0.85rem'
-              }}
-            >
-              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px' }}>
-                <span className={`badge ${diag.severity === 'error' ? 'badge-critical' : 'badge-medium'}`}>
-                  {diag.severity?.toUpperCase() || 'ERROR'}
-                </span>
-                <span style={{ fontFamily: 'var(--font-mono)', fontSize: '0.78rem', color: 'var(--text-muted)' }}>
-                  Line {diag.line}{diag.column ? `, Col ${diag.column}` : ''}
-                </span>
+          {diagnostics.map((diag, idx) => {
+            const diagKey = `syntax-${diag.line}-${diag.message}`;
+            const isDiagFixed = fixedSyntaxDiagnosticKeys?.has(diagKey) || fixedSyntaxLinesMap?.[diag.line];
+
+            return (
+              <div
+                key={idx}
+                style={{
+                  background: isDiagFixed ? 'rgba(59, 130, 246, 0.08)' : 'rgba(0, 0, 0, 0.4)',
+                  padding: '10px 14px',
+                  borderRadius: '6px',
+                  border: isDiagFixed ? '1px solid rgba(59, 130, 246, 0.35)' : '1px solid var(--border-subtle)',
+                  fontSize: '0.85rem'
+                }}
+              >
+                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px', alignItems: 'center' }}>
+                  <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
+                    <span className={`badge ${diag.severity === 'error' ? 'badge-critical' : 'badge-medium'}`}>
+                      {diag.severity?.toUpperCase() || 'ERROR'}
+                    </span>
+                    {isDiagFixed && (
+                      <span className="badge" style={{ background: 'rgba(59, 130, 246, 0.25)', color: '#93c5fd', border: '1px solid rgba(59, 130, 246, 0.4)', fontWeight: '700' }}>
+                        🔵 Corrected &amp; Validated
+                      </span>
+                    )}
+                  </div>
+                  <span style={{ fontFamily: 'var(--font-mono)', fontSize: '0.78rem', color: 'var(--text-muted)' }}>
+                    Line {diag.line}{diag.column ? `, Col ${diag.column}` : ''}
+                  </span>
+                </div>
+                <p style={{ color: isDiagFixed ? '#93c5fd' : '#f87171', margin: '4px 0', fontFamily: 'var(--font-mono)' }}>
+                  {diag.message}
+                </p>
+                {diag.evidence && (
+                  <pre className="code-evidence-box" style={{ margin: '4px 0 0 0' }}>
+                    {diag.evidence}
+                  </pre>
+                )}
+                {!isDiagFixed && onFixDiagnostic && (
+                  <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '8px' }}>
+                    <button
+                      type="button"
+                      className="btn btn-secondary"
+                      onClick={() => onFixDiagnostic(diag)}
+                      style={{
+                        padding: '4px 12px',
+                        fontSize: '0.75rem',
+                        background: 'rgba(234, 179, 8, 0.18)',
+                        borderColor: 'rgba(234, 179, 8, 0.4)',
+                        color: '#fde047',
+                        fontWeight: '700'
+                      }}
+                      title="Apply auto-remediation fix for this syntax/compiler issue"
+                    >
+                      ⚡ Fix Syntax Issue
+                    </button>
+                  </div>
+                )}
               </div>
-              <p style={{ color: '#f87171', margin: '4px 0', fontFamily: 'var(--font-mono)' }}>
-                {diag.message}
-              </p>
-              {diag.evidence && (
-                <pre className="code-evidence-box" style={{ margin: '4px 0 0 0' }}>
-                  {diag.evidence}
-                </pre>
-              )}
-            </div>
-          ))}
+            );
+          })}
         </div>
       )}
     </div>

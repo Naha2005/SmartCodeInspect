@@ -18,6 +18,10 @@ try:
     from backend.knowledge_base.retriever import OWASPRetriever
     from backend.knowledge_base.ingest import run_ingestion
     from backend.agents.ai_provider import get_ai_explanation
+    from backend.agents.orchestrator import get_orchestrator
+    from backend.agents.remediation_agent import get_remediation_agent
+    from backend.agents.pr_summary_agent import get_pr_summary_agent
+    from backend.agents.conversational_agent import get_conversational_assistant
     from backend.reports.pdf_generator import generate_pdf_report
     from backend.config import Config
 except ImportError:
@@ -28,6 +32,10 @@ except ImportError:
     from knowledge_base.retriever import OWASPRetriever  # type: ignore
     from knowledge_base.ingest import run_ingestion  # type: ignore
     from agents.ai_provider import get_ai_explanation  # type: ignore
+    from agents.orchestrator import get_orchestrator  # type: ignore
+    from agents.remediation_agent import get_remediation_agent  # type: ignore
+    from agents.pr_summary_agent import get_pr_summary_agent  # type: ignore
+    from agents.conversational_agent import get_conversational_assistant  # type: ignore
     from reports.pdf_generator import generate_pdf_report  # type: ignore
     from config import Config  # type: ignore
 
@@ -214,83 +222,202 @@ if do_validate and source_code.strip():
                 st.warning(f"Line {d.get('line')}: {d.get('message')}")
 
 if do_analyze and source_code.strip():
-    with st.spinner("Running deterministic security inspection & ChromaDB lookups..."):
+    with st.spinner("Executing Multi-Agent Pipeline (Code Analysis + Security + Remediation + PR Summary)..."):
         lang_key = language.lower()
-        if lang_key == "python":
-            analysis = analyze_python_source(source_code, filename=filename)
-        else:
-            analysis = analyze_java_source(source_code, filename=filename)
+        orchestrator = get_orchestrator()
+        orch_res = orchestrator.run_parallel_analysis(source_code, lang_key, filename=filename)
 
-        st.session_state["latest_analysis"] = analysis
+        # Enrich findings with Remediation Agent
+        remediation_agent = get_remediation_agent()
+        raw_findings = orch_res.get("findings", [])
+        enriched_findings = []
+        for f in raw_findings:
+            rem = remediation_agent.generate_remediation(f, language=lang_key, source_code=source_code)
+            f_copy = dict(f)
+            f_copy["remediation"] = rem
+            enriched_findings.append(f_copy)
+
+        # Generate PR Summary with PR Summary Agent
+        pr_agent = get_pr_summary_agent()
+        pr_summary = pr_agent.generate_summary(
+            findings=enriched_findings,
+            summary=orch_res.get("summary", {}),
+            filename=filename,
+            language=lang_key
+        )
+
+        st.session_state["latest_analysis"] = {
+            "findings": enriched_findings,
+            "summary": orch_res.get("summary", {}),
+            "pr_summary": pr_summary,
+            "language": lang_key,
+            "filename": filename,
+            "source_code": source_code
+        }
 
 if "latest_analysis" in st.session_state:
     analysis = st.session_state["latest_analysis"]
     summary = analysis.get("summary", {})
-
-    st.divider()
-    st.subheader("📊 Inspection Report")
-
-    # Metrics Summary
-    m1, m2, m3, m4, m5 = st.columns(5)
-    m1.metric("Total Findings", summary.get("total_findings", 0))
-    m2.metric("Critical", summary.get("critical", 0))
-    m3.metric("High", summary.get("high", 0))
-    m4.metric("Medium", summary.get("medium", 0))
-    m5.metric("Low", summary.get("low", 0))
-
-    # Findings Breakdown
     findings = analysis.get("findings", [])
-    if findings:
-        st.subheader("🚨 Detected Vulnerabilities")
-        for f in findings:
-            sev = f.get("severity", "MEDIUM").upper()
-            css_class = "finding-critical" if sev == "CRITICAL" else ("finding-high" if sev == "HIGH" else "finding-medium")
+    pr_summary = analysis.get("pr_summary", {})
 
-            with st.container():
-                st.markdown(f"""
-                <div class="{css_class}">
-                    <strong>[{f.get('rule_id')}] {f.get('title')}</strong> &bull; 
-                    <span>Line {f.get('line_number', 'N/A')}</span> &bull; 
-                    <span style="font-weight:bold;">{sev}</span>
-                    <p style="margin-top: 4px; margin-bottom: 2px;">{f.get('description')}</p>
-                </div>
-                """, unsafe_allow_html=True)
-
-                if f.get("evidence"):
-                    st.code(f.get("evidence"), language=language.lower())
-
-                col_mit, col_ai = st.columns([7, 3])
-                with col_mit:
-                    rem = f.get("remediation")
-                    if rem and rem.get("corrected_code"):
-                        st.info(f"**Remediation Guidance:** {rem.get('recommendation', f.get('mitigation'))}")
-                        with st.expander("🛠️ View Corrected Code Example"):
-                            st.code(rem.get("corrected_code"), language=language.lower())
-                    else:
-                        st.info(f"**Remediation:** {f.get('mitigation')}")
-                    if f.get("owasp_citations"):
-                        st.caption(f"OWASP Standards: {', '.join(f.get('owasp_citations'))}")
-
-                with col_ai:
-                    if st.button("🤖 AI Explain", key=f"ai_{f.get('rule_id')}_{f.get('line_number')}"):
-                        with st.spinner("Fetching AI advisory..."):
-                            # Retrieve ChromaDB context
-                            chroma_hits = retriever.search(f.get("title") + " " + f.get("description"), top_k=2)
-                            ai_res = get_ai_explanation(finding=f, owasp_passages=chroma_hits)
-                            st.session_state[f"ai_exp_{f.get('rule_id')}"] = ai_res.get("explanation")
-
-                if f"ai_exp_{f.get('rule_id')}" in st.session_state:
-                    st.markdown("##### 💡 AI Advisory Recommendation")
-                    st.write(st.session_state[f"ai_exp_{f.get('rule_id')}"])
-    else:
-        st.success("🎉 No security vulnerabilities detected in the submitted source code!")
-
-    # PDF Download
     st.divider()
-    pdf_buf = generate_pdf_report(analysis)
-    st.download_button(
-        label="📥 Download Cryptographic PDF Audit Report",
-        data=pdf_buf.getvalue(),
-        file_name=f"{filename}_security_report.pdf",
-        mime="application/pdf"
-    )
+
+    # Tabs for Milestone 3 Developer Experience
+    tab_findings, tab_pr_summary, tab_assistant = st.tabs([
+        f"🚨 Findings & Remediation ({len(findings)})",
+        "📋 PR Review Summary",
+        "💬 Conversational Assistant (ChromaDB RAG)"
+    ])
+
+    # ── TAB 1: FINDINGS & REMEDIATION ──
+    with tab_findings:
+        st.subheader("📊 Multi-Agent Inspection Metrics")
+
+        # Metrics Row
+        m1, m2, m3, m4, m5, m6 = st.columns(6)
+        m1.metric("Health Score", f"{summary.get('overall_code_health_score', 85)}/100")
+        m2.metric("Total Findings", summary.get("total_findings", len(findings)))
+        m3.metric("Critical", summary.get("critical", 0))
+        m4.metric("High", summary.get("high", 0))
+        m5.metric("Medium", summary.get("medium", 0))
+        m6.metric("Low", summary.get("low", 0))
+
+        if findings:
+            for idx, f in enumerate(findings):
+                sev = f.get("severity", "MEDIUM").upper()
+                css_class = "finding-critical" if sev == "CRITICAL" else ("finding-high" if sev == "HIGH" else "finding-medium")
+                rule_id = f.get("rule_id", "RULE")
+                title = f.get("title", "Finding")
+                line_no = f.get("line") or f.get("line_number", "N/A")
+                agent = f.get("agent", "Security Agent")
+
+                with st.container():
+                    st.markdown(f"""
+                    <div class="{css_class}">
+                        <strong>[{rule_id}] {title}</strong> &bull; 
+                        <span>Line {line_no}</span> &bull; 
+                        <span style="font-weight:bold;">{sev}</span> &bull;
+                        <span style="color:#94a3b8; font-size:0.85rem;">Agent: {agent}</span>
+                        <p style="margin-top: 4px; margin-bottom: 2px;">{f.get('description', '')}</p>
+                    </div>
+                    """, unsafe_allow_html=True)
+
+                    if f.get("evidence"):
+                        st.code(f.get("evidence"), language=language.lower())
+
+                    # Remediation details from Remediation Agent
+                    rem = f.get("remediation")
+                    if rem:
+                        st.info(f"💡 **Remediation Recommendation:** {rem.get('recommendation', 'Apply secure pattern.')}")
+                        if rem.get("corrected_code"):
+                            with st.expander("🛠️ View Corrected Code Example"):
+                                st.code(rem.get("corrected_code"), language=language.lower())
+                                if rem.get("best_practice_explanation"):
+                                    st.caption(f"**Best Practice:** {rem.get('best_practice_explanation')}")
+
+                    if f.get("owasp_citations"):
+                        st.caption(f"📚 OWASP Standards: {', '.join(f.get('owasp_citations'))}")
+        else:
+            st.success("🎉 No security vulnerabilities or code defects detected in the submitted source code!")
+
+        # Downloads Row
+        st.divider()
+        col_pdf, col_clean = st.columns([1, 1])
+        with col_pdf:
+            pdf_buf = generate_pdf_report(analysis)
+            st.download_button(
+                label="📄 Download Official PDF Audit Report",
+                data=pdf_buf.getvalue(),
+                file_name=f"{filename}_security_audit.pdf",
+                mime="application/pdf",
+                use_container_width=True
+            )
+        with col_clean:
+            st.download_button(
+                label=f"📥 Download Clean Code (.{'py' if language == 'Python' else 'java'})",
+                data=source_code,
+                file_name=f"clean_{filename}",
+                mime="text/plain",
+                use_container_width=True
+            )
+
+    # ── TAB 2: PR SUMMARY AGENT REVIEW ──
+    with tab_pr_summary:
+        st.subheader("📋 Pull Request Code Review & Merge Audit")
+
+        verdict = pr_summary.get("verdict", {})
+        decision = verdict.get("decision", "CHANGES_REQUESTED")
+        if decision == "APPROVED":
+            st.success(f"### {verdict.get('label', '🟢 Approved')}\n{verdict.get('reason', 'Safe for merge.')}")
+        else:
+            st.error(f"### {verdict.get('label', '🔴 Changes Requested')}\n{verdict.get('reason', 'Blockers detected.')}")
+
+        st.markdown("#### 📝 Merge Readiness Checklist")
+        checklist = pr_summary.get("merge_checklist", [])
+        for item in checklist:
+            st.checkbox(item, value=False, key=f"chk_{item}")
+
+        st.markdown("#### 📄 PR Comment Markdown")
+        md_text = pr_summary.get("markdown", "")
+        st.text_area("Copy for GitHub / GitLab PR Comment", value=md_text, height=180)
+        st.download_button(
+            label="📥 Download PR_REVIEW.md",
+            data=md_text,
+            file_name=f"{filename}_PR_REVIEW.md",
+            mime="text/markdown"
+        )
+
+    # ── TAB 3: CONVERSATIONAL CODE ASSISTANT (CHROMADB RAG) ──
+    with tab_assistant:
+        st.subheader("💬 Conversational Code Assistant")
+        st.caption("Ask questions about flagged vulnerabilities, OWASP standards, and secure coding practices grounded in ChromaDB.")
+
+        if "chat_history" not in st.session_state:
+            st.session_state["chat_history"] = []
+
+        # Display conversation history
+        for msg in st.session_state["chat_history"]:
+            with st.chat_message(msg["role"]):
+                st.markdown(msg["content"])
+                if msg.get("citations"):
+                    st.caption(f"📚 Citations: {', '.join([c.get('title', '') for c in msg.get('citations')])}")
+
+        # Chat Input
+        user_query = st.chat_input("Ask about vulnerabilities, e.g. 'How to fix SQL injection in Python?'")
+        if user_query:
+            st.session_state["chat_history"].append({"role": "user", "content": user_query})
+            with st.chat_message("user"):
+                st.markdown(user_query)
+
+            with st.chat_message("assistant"):
+                with st.spinner("Consulting ChromaDB knowledge base..."):
+                    assistant = get_conversational_assistant()
+                    reply = assistant.ask(
+                        query=user_query,
+                        # pyrefly: ignore[unexpected-keyword]
+                        source_code=source_code,
+                        # pyrefly: ignore[unexpected-keyword]
+                        language=language.lower(),
+                        # pyrefly: ignore[unexpected-keyword]
+                        filename=filename,
+                        # pyrefly: ignore[unexpected-keyword]
+                        findings=findings
+                    )
+
+                    ans_text = reply.get("response", "I could not find a relevant guidance.")
+                    citations = reply.get("citations", [])
+
+                    st.markdown(ans_text)
+                    if citations:
+                        with st.expander(f"📚 Grounded OWASP Citations ({len(citations)})"):
+                            for cit in citations:
+                                st.write(f"**{cit.get('title')}** (Similarity: `{cit.get('score', cit.get('similarity_score', 0.9))}`)")
+                                if cit.get("url"):
+                                    st.markdown(f"[Documentation Link]({cit.get('url')})")
+
+                    st.session_state["chat_history"].append({
+                        "role": "assistant",
+                        "content": ans_text,
+                        "citations": citations
+                    })

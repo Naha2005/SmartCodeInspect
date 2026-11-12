@@ -18,11 +18,15 @@ export function EditorPanel({
   isGeneratingPdf,
   analysisResult,
   analysisError,
+  validationResult,
   fixedFindingKeys = new Set(),
   fixedLinesMap = {},
   onApplyFix,
   onFixAll,
-  onDownloadCleanCode
+  onDownloadCleanCode,
+  fixedSyntaxDiagnosticKeys = new Set(),
+  fixedSyntaxLinesMap = {},
+  onFixDiagnostic
 }) {
   const fileInputRef = useRef(null);
   const dragCounter = useRef(0);
@@ -32,6 +36,22 @@ export function EditorPanel({
   const [copiedContent, setCopiedContent] = useState(false);
   const [viewMode, setViewMode] = useState('inspector');
   const [copiedWholeCode, setCopiedWholeCode] = useState(false);
+  const [selectedSampleKey, setSelectedSampleKey] = useState(
+    language === 'python' ? 'python_vulnerable' : 'java_vulnerable'
+  );
+
+  // Synchronize sample dropdown with active language and code
+  useEffect(() => {
+    if (language === 'python') {
+      if (sourceCode === SAMPLE_CODES.python_valid.code) setSelectedSampleKey('python_valid');
+      else if (sourceCode === SAMPLE_CODES.python_vulnerable.code) setSelectedSampleKey('python_vulnerable');
+      else setSelectedSampleKey('');
+    } else if (language === 'java') {
+      if (sourceCode === SAMPLE_CODES.java_valid.code) setSelectedSampleKey('java_valid');
+      else if (sourceCode === SAMPLE_CODES.java_vulnerable.code) setSelectedSampleKey('java_vulnerable');
+      else setSelectedSampleKey('');
+    }
+  }, [language, sourceCode]);
 
   // Global window dragover/drop prevention to prevent browser navigating away on accidental outside drops
   useEffect(() => {
@@ -52,42 +72,66 @@ export function EditorPanel({
     onAnalyzeRef.current = onAnalyze;
   }, [onAnalyze]);
 
-  const changeLanguage = (newLang) => {
+  const handleLanguageChange = (newLang) => {
     if (onLanguageChange) {
-      onLanguageChange(newLang);
-    } else if (setLanguage) {
+      onLanguageChange(newLang, false);
+    }
+    if (setLanguage) {
       setLanguage(newLang);
     }
     setUploadInfo(null);
-  };
-
-  const handleLanguageChange = (newLang) => {
-    changeLanguage(newLang);
-    if (!onLanguageChange) {
-      if (newLang === 'python') {
-        const sample = SAMPLE_CODES.python_vulnerable;
-        setSourceCode(sample.code);
-        setFilename(sample.filename);
-      } else {
-        const sample = SAMPLE_CODES.java_vulnerable;
-        setSourceCode(sample.code);
-        setFilename(sample.filename);
-      }
+    if (newLang === 'python') {
+      setSelectedSampleKey('python_vulnerable');
+      setFilename(SAMPLE_CODES.python_vulnerable.filename);
+      setSourceCode(SAMPLE_CODES.python_vulnerable.code);
+    } else {
+      setSelectedSampleKey('java_vulnerable');
+      setFilename(SAMPLE_CODES.java_vulnerable.filename);
+      setSourceCode(SAMPLE_CODES.java_vulnerable.code);
     }
   };
 
   const handleSampleSelect = (e) => {
     const key = e.target.value;
+    setSelectedSampleKey(key);
     if (!key || !SAMPLE_CODES[key]) return;
     const sample = SAMPLE_CODES[key];
-    if (onLanguageChange) {
-      onLanguageChange(sample.language);
-    } else if (setLanguage) {
-      setLanguage(sample.language);
+    if (sample.language !== language) {
+      if (onLanguageChange) {
+        onLanguageChange(sample.language, true);
+      }
+      if (setLanguage) {
+        setLanguage(sample.language);
+      }
     }
     setFilename(sample.filename);
     setSourceCode(sample.code);
     setUploadInfo(null);
+  };
+
+  const handleTextareaChange = (e) => {
+    const newCode = e.target.value;
+    setSourceCode(newCode);
+
+    // Smart auto-detection on paste or typing
+    if (newCode.trim().length > 15) {
+      const isJavaSnippet = /\b(public\s+(?:class|interface|enum|record)|import\s+java\.|System\.out\.print|package\s+[a-z0-9_.]+;)\b/.test(newCode);
+      const isPythonSnippet = /\b(def\s+[a-zA-Z_]\w*\s*\(|import\s+os\b|import\s+sys\b|if\s+__name__\s*==|elif\s+|from\s+[a-zA-Z_]\w*\s+import)\b/.test(newCode);
+
+      if (isJavaSnippet && !isPythonSnippet && language !== 'java') {
+        if (onLanguageChange) onLanguageChange('java', true);
+        if (setLanguage) setLanguage('java');
+        if (!filename || filename.endsWith('.py')) {
+          setFilename('LegacyPortalService.java');
+        }
+      } else if (isPythonSnippet && !isJavaSnippet && language !== 'python') {
+        if (onLanguageChange) onLanguageChange('python', true);
+        if (setLanguage) setLanguage('python');
+        if (!filename || filename.endsWith('.java')) {
+          setFilename('vulnerable_service.py');
+        }
+      }
+    }
   };
 
   /** Smart language detector by extension and code structure heuristics */
@@ -298,7 +342,22 @@ export function EditorPanel({
     }).length || 0
   );
   const fixedCount = Math.max(0, totalFindingsCount - activeErrorsCount);
-  const currentHealthScore = analysisResult?.summary?.overall_code_health_score ?? (activeErrorsCount === 0 && totalFindingsCount > 0 ? 100 : 85);
+
+  // Active syntax diagnostics count
+  const allSyntaxDiags = validationResult?.diagnostics || [];
+  const activeSyntaxDiags = allSyntaxDiags.filter((d) => {
+    const k = `syntax-${d.line}-${d.message}`;
+    return !fixedSyntaxDiagnosticKeys?.has(k) && !fixedSyntaxLinesMap?.[d.line];
+  });
+  const activeSyntaxCount = activeSyntaxDiags.length;
+
+  const currentHealthScore = analysisResult?.summary?.overall_code_health_score ?? (
+    (activeErrorsCount === 0 && activeSyntaxCount === 0 && (totalFindingsCount > 0 || allSyntaxDiags.length > 0))
+      ? 100
+      : (activeSyntaxCount > 0 ? 80 : (activeErrorsCount === 0 ? 100 : 85))
+  );
+
+  const hasAnyInspectableLines = totalFindingsCount > 0 || allSyntaxDiags.length > 0;
 
   return (
     <div
@@ -347,7 +406,7 @@ export function EditorPanel({
             className="btn btn-secondary"
             style={{ padding: '6px 12px', fontSize: '0.82rem', background: '#0f172a', color: '#e2e8f0', borderColor: 'var(--border-subtle)' }}
             onChange={handleSampleSelect}
-            defaultValue=""
+            value={selectedSampleKey}
           >
             <option value="" disabled>Load Sample Code...</option>
             <option value="python_vulnerable">⚠️ Vulnerable Python (OWASP Flaws)</option>
@@ -588,18 +647,22 @@ export function EditorPanel({
       </div>
 
       {/* Dynamic Health Score & Error Line Banner (Milestone 3) */}
-      {totalFindingsCount > 0 && (
+      {hasAnyInspectableLines && (
         <div
           id="editor-status-banner"
           style={{
             marginBottom: '12px',
             padding: '10px 14px',
             borderRadius: '8px',
-            background: activeErrorsCount === 0
+            background: (activeErrorsCount === 0 && activeSyntaxCount === 0)
               ? 'rgba(34, 197, 94, 0.12)'
+              : (activeErrorsCount === 0 && activeSyntaxCount > 0)
+              ? 'rgba(234, 179, 8, 0.12)'
               : 'rgba(239, 68, 68, 0.12)',
-            border: activeErrorsCount === 0
+            border: (activeErrorsCount === 0 && activeSyntaxCount === 0)
               ? '1px solid rgba(34, 197, 94, 0.35)'
+              : (activeErrorsCount === 0 && activeSyntaxCount > 0)
+              ? '1px solid rgba(234, 179, 8, 0.35)'
               : '1px solid rgba(239, 68, 68, 0.35)',
             display: 'flex',
             alignItems: 'center',
@@ -609,17 +672,31 @@ export function EditorPanel({
           }}
         >
           <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-            <span style={{ fontSize: '1.25rem' }}>{activeErrorsCount === 0 ? '🎉' : '🛡️'}</span>
+            <span style={{ fontSize: '1.25rem' }}>
+              {(activeErrorsCount === 0 && activeSyntaxCount === 0) ? '🎉' : (activeErrorsCount === 0 ? '⚠️' : '🛡️')}
+            </span>
             <div>
-              <div style={{ fontWeight: '700', fontSize: '0.88rem', color: activeErrorsCount === 0 ? '#4ade80' : '#f87171' }}>
-                {activeErrorsCount === 0
+              <div
+                style={{
+                  fontWeight: '700',
+                  fontSize: '0.88rem',
+                  color: (activeErrorsCount === 0 && activeSyntaxCount === 0)
+                    ? '#4ade80'
+                    : (activeErrorsCount === 0 ? '#fde047' : '#f87171')
+                }}
+              >
+                {(activeErrorsCount === 0 && activeSyntaxCount === 0)
                   ? '0 Errors Remaining • 100% Clean Code Verified!'
-                  : `${activeErrorsCount} Active Error Line(s) Highlighted in Red • ${fixedCount} Fixed in Green`}
+                  : (activeErrorsCount === 0 && activeSyntaxCount > 0)
+                  ? `0 Vulnerabilities Remaining • ${activeSyntaxCount} Syntax Issue(s) Need Attention (in Yellow)`
+                  : `${activeErrorsCount} Active Vulnerability Line(s) in Red${activeSyntaxCount > 0 ? ` • ${activeSyntaxCount} Syntax Issue(s) in Yellow` : ''} • ${fixedCount} Fixed in Green`}
               </div>
               <div style={{ fontSize: '0.74rem', color: 'var(--text-muted)' }}>
-                {activeErrorsCount === 0
-                  ? 'All vulnerabilities successfully remediated. Code is safe for production merge and export.'
-                  : 'Click "⚡ Fix Line" on any highlighted row or "⚡ Fix All" to replace vulnerable lines with clean code.'}
+                {(activeErrorsCount === 0 && activeSyntaxCount === 0)
+                  ? 'All vulnerabilities and syntax issues successfully remediated. Code is safe for production merge and export.'
+                  : (activeErrorsCount === 0 && activeSyntaxCount > 0)
+                  ? 'Resolve highlighted syntax/compiler deprecation issues using "⚡ Fix Syntax" to achieve a 100/100 score.'
+                  : 'Click "⚡ Fix Line" on red rows or "⚡ Fix Syntax" on yellow rows to remediate code issues.'}
               </div>
             </div>
           </div>
@@ -632,9 +709,9 @@ export function EditorPanel({
                 fontWeight: '800',
                 fontSize: '0.82rem',
                 fontFamily: 'var(--font-mono)',
-                background: activeErrorsCount === 0 ? 'rgba(34, 197, 94, 0.2)' : 'rgba(251, 191, 36, 0.2)',
-                color: activeErrorsCount === 0 ? '#4ade80' : '#fbbf24',
-                border: activeErrorsCount === 0 ? '1px solid rgba(34, 197, 94, 0.4)' : '1px solid rgba(251, 191, 36, 0.4)'
+                background: (activeErrorsCount === 0 && activeSyntaxCount === 0) ? 'rgba(34, 197, 94, 0.2)' : 'rgba(251, 191, 36, 0.2)',
+                color: (activeErrorsCount === 0 && activeSyntaxCount === 0) ? '#4ade80' : '#fbbf24',
+                border: (activeErrorsCount === 0 && activeSyntaxCount === 0) ? '1px solid rgba(34, 197, 94, 0.4)' : '1px solid rgba(251, 191, 36, 0.4)'
               }}
             >
               Score: {currentHealthScore}/100
@@ -672,7 +749,7 @@ export function EditorPanel({
         <div className="editor-header">
           <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
             <span>{filename}</span>
-            {totalFindingsCount > 0 && (
+            {hasAnyInspectableLines && (
               <div style={{ display: 'flex', gap: '4px', marginLeft: '6px' }}>
                 <button
                   type="button"
@@ -745,34 +822,57 @@ export function EditorPanel({
           </div>
         )}
 
-        {/* Interactive Line-by-Line Code Inspector with Red Error Highlights & Green Fixed Lines */}
-        {viewMode === 'inspector' && totalFindingsCount > 0 ? (
+        {/* Interactive Line-by-Line Code Inspector with Red, Green, Yellow, Blue Highlights */}
+        {viewMode === 'inspector' && hasAnyInspectableLines ? (
           <div className="code-inspector-container" id="code-line-inspector">
             {codeLines.map((lineText, idx) => {
               const lineNum = idx + 1;
               const lineFindings = (analysisResult?.findings || []).filter((f) => f.line === lineNum);
-              const isError = lineFindings.length > 0;
-              const isFixed = isError && (
+              const isFinding = lineFindings.length > 0;
+              const isFindingFixed = isFinding && (
                 fixedLinesMap?.[lineNum] ||
                 lineFindings.every((f) => {
                   const key = `${f.rule_id || 'RULE'}-${f.line || 0}-${(f.evidence || '').slice(0, 30)}`;
                   return fixedFindingKeys?.has(key);
                 })
               );
-              const isActiveError = isError && !isFixed;
+              const isActiveFinding = isFinding && !isFindingFixed;
+
+              // Check syntax diagnostics for this line
+              const lineSyntaxDiags = allSyntaxDiags.filter((d) => d.line === lineNum);
+              const isSyntax = lineSyntaxDiags.length > 0;
+              const isSyntaxFixed = isSyntax && (
+                fixedSyntaxLinesMap?.[lineNum] ||
+                lineSyntaxDiags.every((d) => fixedSyntaxDiagnosticKeys?.has(`syntax-${d.line}-${d.message}`))
+              );
+              const isActiveSyntax = isSyntax && !isSyntaxFixed;
 
               let rowClass = 'code-line-row';
-              if (isActiveError) rowClass += ' code-line-error';
-              else if (isFixed) rowClass += ' code-line-fixed';
+              let gutterSymbol = '';
+              if (isActiveFinding) {
+                rowClass += ' code-line-error';
+                gutterSymbol = '🔴 ';
+              } else if (isActiveSyntax) {
+                rowClass += ' code-line-syntax-error';
+                gutterSymbol = '🟡 ';
+              } else if (isFindingFixed) {
+                rowClass += ' code-line-fixed';
+                gutterSymbol = '🟢 ';
+              } else if (isSyntaxFixed) {
+                rowClass += ' code-line-syntax-fixed';
+                gutterSymbol = '🔵 ';
+              }
 
               return (
                 <div key={lineNum} className={rowClass}>
                   <div className="code-line-gutter">
-                    {isActiveError ? '🔴' : isFixed ? '🟢' : ''} {lineNum}
+                    {gutterSymbol}{lineNum}
                   </div>
                   <div className="code-line-content">
                     <span className="code-line-text">{lineText || ' '}</span>
-                    {isActiveError && (
+
+                    {/* Active Finding (Red) */}
+                    {isActiveFinding && (
                       <div style={{ display: 'flex', gap: '6px', alignItems: 'center', flexShrink: 0 }}>
                         <span className="code-line-badge-error" title={`${lineFindings[0]?.rule_id}: ${lineFindings[0]?.title}`}>
                           🔴 Vulnerable Line
@@ -789,9 +889,37 @@ export function EditorPanel({
                         )}
                       </div>
                     )}
-                    {isFixed && (
+
+                    {/* Active Syntax Error/Warning (Yellow) */}
+                    {!isActiveFinding && isActiveSyntax && (
+                      <div style={{ display: 'flex', gap: '6px', alignItems: 'center', flexShrink: 0 }}>
+                        <span className="code-line-badge-syntax-error" title={lineSyntaxDiags[0]?.message}>
+                          🟡 Syntax Issue
+                        </span>
+                        {onFixDiagnostic && (
+                          <button
+                            type="button"
+                            className="btn-fix-syntax-inline"
+                            onClick={() => onFixDiagnostic(lineSyntaxDiags[0])}
+                            title="Apply fix for this syntax/compiler issue"
+                          >
+                            ⚡ Fix Syntax
+                          </button>
+                        )}
+                      </div>
+                    )}
+
+                    {/* Remediated Finding (Green) */}
+                    {isFindingFixed && !isActiveSyntax && (
                       <span className="code-line-badge-fixed">
                         ✅ Corrected &amp; Clean
+                      </span>
+                    )}
+
+                    {/* Remediated Syntax (Blue) */}
+                    {!isFinding && isSyntaxFixed && (
+                      <span className="code-line-badge-syntax-fixed">
+                        🔵 Syntax Validated &amp; Fixed
                       </span>
                     )}
                   </div>
@@ -805,13 +933,13 @@ export function EditorPanel({
           id="code-editor-textarea"
           className="code-textarea"
           value={sourceCode}
-          onChange={(e) => setSourceCode(e.target.value)}
+          onChange={handleTextareaChange}
           onDragOver={handleDragOver}
           onDrop={handleDrop}
           placeholder="Paste or write your Python / Java code here, or drag-and-drop a .py / .java file onto this editor…"
           spellCheck="false"
           style={{
-            display: viewMode === 'inspector' && totalFindingsCount > 0 ? 'none' : 'block'
+            display: viewMode === 'inspector' && hasAnyInspectableLines ? 'none' : 'block'
           }}
         />
       </div>
@@ -871,6 +999,27 @@ export function EditorPanel({
         >
           {copiedWholeCode ? '✅ Whole Code Copied!' : '📋 Copy Whole Code'}
         </button>
+      </div>
+
+      {/* Color Legend for Code Inspector (Milestone 3 Error Highlighting) */}
+      <div className="inspector-color-legend" id="inspector-color-legend">
+        <span style={{ fontWeight: '700', color: '#f8fafc', marginRight: '4px' }}>🎨 Color Legend:</span>
+        <span className="legend-item">
+          <span className="legend-dot" style={{ background: '#ef4444' }}></span>
+          <span style={{ color: '#fca5a5' }}>🔴 Red: Active Vulnerability</span>
+        </span>
+        <span className="legend-item">
+          <span className="legend-dot" style={{ background: '#22c55e' }}></span>
+          <span style={{ color: '#86efac' }}>🟢 Green: Remediated Vulnerability</span>
+        </span>
+        <span className="legend-item">
+          <span className="legend-dot" style={{ background: '#eab308' }}></span>
+          <span style={{ color: '#fde047' }}>🟡 Yellow: Syntax / Compiler Error</span>
+        </span>
+        <span className="legend-item">
+          <span className="legend-dot" style={{ background: '#3b82f6' }}></span>
+          <span style={{ color: '#93c5fd' }}>🔵 Blue: Corrected Syntax</span>
+        </span>
       </div>
 
       {/* Drag-and-drop hint */}
