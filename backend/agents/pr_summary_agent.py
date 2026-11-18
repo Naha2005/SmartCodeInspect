@@ -10,6 +10,14 @@ merge checklists, and exportable GitHub/GitLab markdown comments.
 import logging
 from typing import Any, Dict, List, Optional
 
+try:
+    from utils.severity_engine import get_severity_engine
+except ImportError:
+    try:
+        from backend.utils.severity_engine import get_severity_engine
+    except ImportError:
+        from ..utils.severity_engine import get_severity_engine
+
 logger = logging.getLogger(__name__)
 
 AGENT_NAME = "PR Summary Agent"
@@ -23,6 +31,7 @@ class PRSummaryAgent:
 
     def __init__(self):
         self.name = AGENT_NAME
+        self.severity_engine = get_severity_engine()
 
     def _determine_verdict(
         self,
@@ -92,19 +101,16 @@ class PRSummaryAgent:
         low_count: int
     ) -> int:
         """
-        Calculates an overall Composite Code Health Score (0 - 100).
-        Weights security posture (65%) and code maintainability (35%).
-        Caps health score when active critical/high vulnerabilities are present.
+        Calculates an overall Composite Code Health Score (0 - 100) using centralized SeverityEngine.
         """
         security_penalty = (critical_count * 50.0) + (high_count * 25.0) + (medium_count * 10.0) + (low_count * 2.0)
         security_score = max(0.0, 100.0 - security_penalty)
-
-        health = (security_score * 0.65) + (float(quality_score) * 0.35)
-        if critical_count > 0:
-            health = min(health, 60.0)
-        elif high_count > 0:
-            health = min(health, 75.0)
-        return max(0, min(100, round(health)))
+        return self.severity_engine.calculate_composite_score(
+            security_score=security_score,
+            quality_score=quality_score,
+            critical_count=critical_count,
+            high_count=high_count
+        )
 
     def _build_prioritized_fix_list(self, findings: List[Dict[str, Any]]) -> Dict[str, List[Dict[str, Any]]]:
         """
@@ -156,8 +162,11 @@ class PRSummaryAgent:
             "p0_blockers": p0_list,
             "p1_important": p1_list,
             "p2_maintainability": p2_list,
+            # pyrefly: ignore[bad-assignment]
             "total_p0": len(p0_list),
+            # pyrefly: ignore[bad-assignment]
             "total_p1": len(p1_list),
+            # pyrefly: ignore[bad-assignment]
             "total_p2": len(p2_list)
         }
 
@@ -211,6 +220,26 @@ class PRSummaryAgent:
         md.append(f"| **Security Posture** | **{security_posture}** | {'🟢 Compliant' if 'A' in security_posture else '🔴 Non-Compliant'} |")
         md.append(f"| **Total Findings** | **{summary.get('total_findings', 0)}** | {summary.get('security_findings_count', 0)} Security &bull; {summary.get('code_quality_findings_count', 0)} Quality |")
         md.append("")
+
+        # Six-Dimensional Radar Quality Scorecard
+        radar = summary.get("six_dimensional_radar")
+        if radar and isinstance(radar.get("dimensions"), dict):
+            md.append("### 🕸️ Six-Dimensional Quality Scorecard")
+            md.append("")
+            md.append("| Dimension | Score | Assessment |")
+            md.append("| :--- | :---: | :--- |")
+            for dim, d_data in radar["dimensions"].items():
+                s = d_data.get("score", 100)
+                st = d_data.get("status", "Good")
+                icon = "🟢" if s >= 90 else "🟡" if s >= 75 else "🟠" if s >= 50 else "🔴"
+                md.append(f"| {dim} | **{s}/100** | {icon} {st} |")
+            md.append("")
+
+        # Explainable Score Breakdown Narrative
+        score_breakdown = summary.get("score_breakdown")
+        if score_breakdown and score_breakdown.get("narrative"):
+            md.append(f"> ℹ️ **Score Explanation:** {score_breakdown['narrative']}")
+            md.append("")
 
         # Severity Breakdown Table
         md.append("### 🛡️ Severity Breakdown")
@@ -274,13 +303,17 @@ class PRSummaryAgent:
         self,
         findings: List[Dict[str, Any]],
         summary: Dict[str, Any],
-        metadata: Optional[Dict[str, Any]] = None
+        metadata: Optional[Dict[str, Any]] = None,
+        **kwargs: Any
     ) -> Dict[str, Any]:
         """
         Compile all agent outputs into a complete Pull Request review summary.
         Returns both structured JSON components and fully-formatted Markdown.
         """
-        meta = metadata or {}
+        meta = dict(metadata) if metadata else {}
+        for k, v in kwargs.items():
+            if k not in meta:
+                meta[k] = v
         filename = meta.get("filename", "inspected_source")
         language = meta.get("language", "python")
 
@@ -368,6 +401,9 @@ class PRSummaryAgent:
             "merge_checklist": checklist,
             "markdown": markdown_text
         }
+
+    # Backward compatibility alias
+    generate_summary = generate_pr_summary
 
 
 # Singleton instance

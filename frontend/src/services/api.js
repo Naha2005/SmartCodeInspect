@@ -138,13 +138,15 @@ export const apiService = {
 
   async downloadPdfReport({ analysisData, sourceCode, language, filename }) {
     const payload = {};
-    if (sourceCode && language) {
+    if (analysisData && typeof analysisData === 'object') {
+      payload.analysis_data = analysisData;
+      payload.filename = filename || analysisData.filename || 'inspected_source';
+      if (sourceCode) payload.source_code = sourceCode;
+      if (language) payload.language = language;
+    } else if (sourceCode && language) {
       payload.source_code = sourceCode;
       payload.language = language;
       payload.filename = filename || 'inspected_source';
-    } else if (analysisData) {
-      payload.analysis_data = analysisData;
-      payload.filename = filename || analysisData.filename || 'inspected_source';
     } else {
       throw new Error('No analysis data or source code provided for report generation.');
     }
@@ -176,5 +178,48 @@ export const apiService = {
     a.remove();
     window.URL.revokeObjectURL(downloadUrl);
     return true;
+  },
+
+  async downloadSarifReport({ analysisData, sourceCode, language, filename }) {
+    const payload = {};
+    if (analysisData && typeof analysisData === 'object') {
+      payload.analysis_data = analysisData;
+      payload.filename = filename || analysisData.filename || 'inspected_source';
+      if (sourceCode) payload.source_code = sourceCode;
+      if (language) payload.language = language;
+    } else if (sourceCode && language) {
+      payload.source_code = sourceCode;
+      payload.language = language;
+      payload.filename = filename || 'inspected_source';
+    } else {
+      throw new Error('No analysis data or source code provided for report generation.');
+    }
+
+    const res = await fetchWithTimeout(`${API_BASE}/reports/sarif`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    }, 20000);
+
+    if (!res.ok) {
+      const errText = await res.text();
+      throw new Error(errText || 'Failed to download SARIF report');
+    }
+
+    const sarifData = await res.json();
+    const blob = new Blob([JSON.stringify(sarifData, null, 2)], { type: 'application/json' });
+    const downloadUrl = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = downloadUrl;
+    const safeName = (filename || 'code_inspection_report').replace(/\.[^/.]+$/, '');
+    a.download = `${safeName}.sarif`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    window.URL.revokeObjectURL(downloadUrl);
+    return true;
   }
 };
+
+export const api = apiService;
+export default apiService;

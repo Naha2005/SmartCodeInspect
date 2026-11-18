@@ -13,6 +13,7 @@ try:
     from agents.security_agent import SecurityVulnerabilityAgent
     from agents.remediation_agent import RemediationAgent
     from agents.pr_summary_agent import PRSummaryAgent
+    from utils.severity_engine import get_severity_engine
 except ImportError:
     try:
         from backend.analyzers.rules.base_rule import Finding
@@ -20,12 +21,14 @@ except ImportError:
         from backend.agents.security_agent import SecurityVulnerabilityAgent
         from backend.agents.remediation_agent import RemediationAgent
         from backend.agents.pr_summary_agent import PRSummaryAgent
+        from backend.utils.severity_engine import get_severity_engine
     except ImportError:
         from ..analyzers.rules.base_rule import Finding
         from .code_analysis_agent import CodeAnalysisAgent
         from .security_agent import SecurityVulnerabilityAgent
         from .remediation_agent import RemediationAgent
         from .pr_summary_agent import PRSummaryAgent
+        from ..utils.severity_engine import get_severity_engine
 
 
 logger = logging.getLogger(__name__)
@@ -48,6 +51,7 @@ class MultiAgentOrchestrator:
         self.security_agent = SecurityVulnerabilityAgent()
         self.remediation_agent = RemediationAgent()
         self.pr_summary_agent = PRSummaryAgent()
+        self.severity_engine = get_severity_engine()
         self.timeout_seconds = timeout_seconds
 
     @staticmethod
@@ -307,7 +311,7 @@ class MultiAgentOrchestrator:
         )
         remediation_duration_ms = (time.perf_counter() - remediation_start) * 1000.0
 
-        # Milestone 3: Calculate composite code health score
+        # Milestone 3 & Centralized Severity Engine: Calculate composite code health score
         crit = summary.get("critical", 0)
         high = summary.get("high", 0)
         med = summary.get("medium", 0)
@@ -316,12 +320,13 @@ class MultiAgentOrchestrator:
         sec_penalty = (crit * 50.0) + (high * 25.0) + (med * 10.0) + ((low + info) * 2.0)
         sec_health = max(0.0, 100.0 - sec_penalty)
         quality_score = float(summary.get("code_quality_score", 100))
-        composite_health = (sec_health * 0.65) + (quality_score * 0.35)
-        if crit > 0:
-            composite_health = min(composite_health, 60.0)
-        elif high > 0:
-            composite_health = min(composite_health, 75.0)
-        summary["overall_code_health_score"] = max(0, min(100, round(composite_health)))
+        composite_health = self.severity_engine.calculate_composite_score(
+            security_score=sec_health,
+            quality_score=quality_score,
+            critical_count=crit,
+            high_count=high
+        )
+        summary["overall_code_health_score"] = composite_health
 
         # Milestone 3: Compile comprehensive Pull Request style review summary
         pr_start = time.perf_counter()
@@ -384,6 +389,7 @@ class MultiAgentOrchestrator:
         """
         unified: List[Dict[str, Any]] = []
         seen_keys = set()
+        duplicates_excluded = 0
 
         for default_agent, findings in (
             ("Security Vulnerability Agent", security_findings),
@@ -399,22 +405,28 @@ class MultiAgentOrchestrator:
                 category = str(finding.get("category", "")).strip()
                 title = str(finding.get("title", "")).strip()
 
-                # Include agent and category to avoid suppressing
-                # distinct findings from different analysis agents.
+                # Cross-agent correlation key: same line and rule/evidence
                 dedup_key = (
-                    agent,
                     rule_id,
                     line,
-                    category,
-                    title,
-                    evidence,
+                    evidence[:60].lower() if evidence else title[:60].lower(),
                 )
 
-                if dedup_key in seen_keys:
+                if line > 0 and dedup_key in seen_keys:
+                    duplicates_excluded += 1
+                    for u in unified:
+                        if self._safe_line_number(u) == line and str(u.get("rule_id")) == rule_id:
+                            merged = u.setdefault("merged_from_agents", [u.get("agent", default_agent)])
+                            if agent not in merged:
+                                merged.append(agent)
+                            break
                     continue
 
-                seen_keys.add(dedup_key)
+                if line > 0:
+                    seen_keys.add(dedup_key)
+
                 finding["agent"] = agent
+                finding["merged_from_agents"] = [agent]
                 finding["severity"] = self._severity(finding)
                 finding["severity_score"] = self._safe_severity_score(
                     finding
@@ -428,6 +440,7 @@ class MultiAgentOrchestrator:
                 self._safe_line_number(item),
             )
         )
+        self._last_duplicates_excluded = duplicates_excluded
 
         return unified
 
@@ -530,6 +543,12 @@ class MultiAgentOrchestrator:
             sec_count = len(security_findings)
             code_count = len(code_findings)
 
+        radar = self.severity_engine.calculate_six_dimensional_radar(unified_findings)
+        score_breakdown = self.severity_engine.get_score_explanation(
+            unified_findings,
+            duplicates_excluded=getattr(self, "_last_duplicates_excluded", 0)
+        )
+
         return {
             "total_findings": len(unified_findings),
             "critical": counts["Critical"],
@@ -542,6 +561,10 @@ class MultiAgentOrchestrator:
             "average_severity_score": average_score,
             "code_quality_score": code_quality_score,
             "security_posture": security_posture,
+            "radar_scores": radar["radar_scores"],
+            "dimension_details": radar["dimension_details"],
+            "score_breakdown": score_breakdown,
+            "scoring_status": "complete",
         }
 
 

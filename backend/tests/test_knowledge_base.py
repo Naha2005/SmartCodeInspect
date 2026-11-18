@@ -68,3 +68,24 @@ def test_retriever_empty_query():
     retriever = OWASPRetriever()
     assert retriever.search("") == []
     assert retriever.search("   ") == []
+
+
+def test_retriever_query_expansion():
+    retriever = OWASPRetriever()
+    expanded_sqli = retriever.expand_query("SEC-PY-003")
+    assert "sql injection" in expanded_sqli.lower()
+    assert "cwe-89" in expanded_sqli.lower()
+
+    expanded_xxe = retriever.expand_query("xxe in parser")
+    assert "xml external entity" in expanded_xxe.lower()
+
+
+def test_retriever_dual_key_compatibility():
+    retriever = OWASPRetriever()
+    results = retriever.search("SQL injection prevention", top_k=2)
+    assert len(results) > 0
+    for r in results:
+        assert "text" in r
+        assert "content" in r
+        assert r["text"] == r["content"]
+        assert len(r["text"]) > 0

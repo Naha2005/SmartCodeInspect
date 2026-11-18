@@ -1,17 +1,97 @@
-# Smart Code Inspection Platform with Vulnerability Detection System
+# SmartCodeInspect – AI Code Review & Security Analysis Agent
 
 [![Python 3.10+](https://img.shields.io/badge/Python-3.10%2B-blue.svg)](https://www.python.org/)
 [![Java JDK 17+](https://img.shields.io/badge/Java-JDK%2017%2B-orange.svg)](https://openjdk.org/)
 [![React 19](https://img.shields.io/badge/React-19.2-61dafb.svg)](https://react.dev/)
 [![Vite 8](https://img.shields.io/badge/Vite-8.3-646cff.svg)](https://vite.dev/)
+[![Streamlit](https://img.shields.io/badge/Streamlit-1.38%2B-FF4B4B.svg)](https://streamlit.io/)
+[![ReportLab](https://img.shields.io/badge/PDF-ReportLab%20Enterprise-success.svg)](https://www.reportlab.com/)
+[![SARIF](https://img.shields.io/badge/SARIF-OASIS%20v2.1.0-blue.svg)](https://sarifweb.azurewebsites.net/)
 [![OWASP Top 10](https://img.shields.io/badge/OWASP-Top%2010%202026%20%2F%202025-red.svg)](https://owasp.org/www-project-top-ten/)
 [![Multi-Agent](https://img.shields.io/badge/Architecture-5--Agent%20Pipeline-blueviolet.svg)](#-multi-agent-orchestration-architecture)
-[![Tests Passing](https://img.shields.io/badge/Tests-82%20Backend%20%2B%2014%20Frontend%20Passed-success.svg)](#-automated-testing)
+[![Tests Passing](https://img.shields.io/badge/Tests-125%20Backend%20%2B%2025%20Frontend%20Passed-success.svg)](#-automated-testing)
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 
-An enterprise-grade static code analysis, security auditing, multi-agent orchestration, and OWASP compliance platform engineered for Python and Java codebases. 
+An enterprise-grade, zero-execution static code analysis, security auditing, multi-agent orchestration, and OWASP compliance platform engineered for Python and Java codebases.
 
-The platform guarantees **strict zero-execution static inspection** (submitted source code is never executed), coupled with real compiler diagnostic verification (`javac`), parallel **multi-agent orchestration** (Code Analysis Agent + Security Vulnerability Agent + Remediation Agent + PR Summary Agent), a RAG-powered **Conversational Code Assistant**, 11+ deterministic security rule detectors, a hybrid vector knowledge retrieval engine (ChromaDB + Pure-Python TF-IDF) over authentic **OWASP 2026 Standards**, optional multi-provider AI security consultation (Google Gemini & Groq with offline fallback), and downloadable ReportLab PDF audit reports.
+---
+
+## 🎯 Project Overview & Problem Statement
+
+### Problem Statement
+Software development teams frequently struggle with inconsistent code quality, undetected security vulnerabilities, and time-consuming manual code reviews. Developers often lack immediate access to expert guidance on secure coding practices, design principles, and vulnerability remediation during active development. Manual code reviews are slow, subjective, and unable to scale with growing codebases — leaving critical security risks and quality issues undetected until late in the development lifecycle.
+
+### Objective
+The objective of **SmartCodeInspect** is to provide an intelligent multi-agent platform that automatically analyzes source code for quality issues, security vulnerabilities, and best practice violations. A developer pastes code directly or uploads a source file in Python or Java; a multi-agent pipeline triggers automatically:
+1. A **Code Analysis Agent** reviews code structure, detects code smells, cyclomatic complexity, and design issues.
+2. A **Security Vulnerability Agent** scans for OWASP-standard vulnerabilities including SQL injection, XSS, hardcoded secrets, and broken access controls.
+3. A **Remediation Agent** generates specific fix recommendations with production-grade corrected code examples and unified diffs.
+4. A **PR Summary Agent** produces a human-readable review summary, merge verdict, and interactive checklist.
+5. A RAG-powered **Conversational Code Assistant** allows developers to ask follow-up questions about flagged issues, request deeper explanations, or query best practice guidelines — all grounded in an indexed secure coding knowledge base.
+6. An **Enterprise PDF Report Generation Module** produces structured, publication-grade code review reports detailing 1st Before, 2nd After code transformations and system-wide transformation summaries.
+
+The platform improves code quality, reduces security exposure, and accelerates developer learning through intelligent, explainable, and actionable code review automation.
+
+---
+
+## 🏆 Project Outcomes
+
+1. **Multi-Agent Pipeline**: Automatically analyzes submitted code for quality issues, security vulnerabilities, and best practice violations via parallel execution.
+2. **OWASP Vulnerability Detection**: Identifies OWASP-standard security vulnerabilities with mathematical severity scoring and location-specific flagging via the Security Vulnerability Agent.
+3. **Specific Code Remediation**: Generates syntactically valid corrected code examples and refactoring suggestions via a Remediation Agent grounded in secure coding standards.
+4. **RAG-Powered Conversational Assistant**: Grounded in authentic OWASP 2026 cheat sheets and guidelines, enabling interactive Q&A, root-cause deep dives, and unit test generation.
+5. **Structured Exportable Reports**: Produces exportable PDF reports (covering findings summary, severity breakdown, remediation roadmap, and overall code quality assessment with Before vs After code transformation cards) and OASIS SARIF v2.1.0 standard files for GitHub Code Scanning.
+
+---
+
+## 🤖 Agents Implemented
+
+| # | Agent Name | Primary Responsibility | Key Capabilities | Implementation |
+| :-: | :--- | :--- | :--- | :--- |
+| **1** | **Code Analysis Agent** | Reviews code structure, identifies code smells, design anti-patterns, complexity issues, and poor practices | Cyclomatic complexity (McCabe), nesting depth (>3 levels), mutable default args, print statements in production, unmanaged resource leaks, AST node traversal | [`backend/agents/code_analysis_agent.py`](backend/agents/code_analysis_agent.py) |
+| **2** | **Security Vulnerability Agent** | Scans for OWASP-standard vulnerabilities with calibrated severity scoring | SQL injection, OS command injection, hardcoded secrets, insecure deserialization, broken cryptography, path traversal, XXE, SSRF, exact CWE mapping | [`backend/agents/security_agent.py`](backend/agents/security_agent.py) |
+| **3** | **Remediation Agent** | Generates actionable fix recommendations with corrected code examples and best practice explanations | Production-grade replacement patterns, before/after diffs, regression prevention checklists, 1-click editor code replacement | [`backend/agents/remediation_agent.py`](backend/agents/remediation_agent.py) |
+| **4** | **PR Summary Agent** | Compiles all agent findings into a structured pull request style review summary | Executive overview, merge decision (`APPROVED` vs `CHANGES_REQUESTED`), interactive merge checklist, prioritized fix list (P0/P1/P2), exportable markdown | [`backend/agents/pr_summary_agent.py`](backend/agents/pr_summary_agent.py) |
+| **5** | **Conversational Code Assistant** | RAG-powered Q&A grounded in secure coding knowledge base for follow-up guidance | ChromaDB vector search + TF-IDF fallback, anti-injection prompt guardrails, 4-tier structured output, line-specific fix explanations, radar dimension guidance | [`backend/agents/conversational_agent.py`](backend/agents/conversational_agent.py) |
+
+---
+
+## 📦 Core Modules Implemented
+
+1. **Code Submission Module**: Direct code paste and file upload for Python (`.py`) and Java (`.java`) source files with auto-detection, line-level error gutters, and sandboxed syntax validation (Python AST parsing and Java `javac -Xlint:all` compilation).
+2. **Secure Coding Knowledge Base and RAG Pipeline Module**: 15 authentic OWASP markdown documents (10 documents >= 300 lines each) indexed into ChromaDB vector database (521 semantic chunks) with pure-Python TF-IDF cosine similarity fallback and semantic query expansion.
+3. **Multi-Agent Orchestration and Analysis Pipeline**: ThreadPoolExecutor-based parallel dispatch of Code Analysis and Security Vulnerability agents with unified finding aggregation, deduplication, and confidence-aware scoring.
+4. **Findings Display and Centralized Severity Engine Module**: Single source of truth ([`backend/utils/severity_engine.py`](backend/utils/severity_engine.py)) establishing consistent severity weights (`Critical: -35`, `High: -20`, `Medium: -10`, `Low: -4`, `Info: -1`), composite scoring ($0.70 \times \text{Security} + 0.30 \times \text{Quality}$), and a **Six-Dimensional Quality Radar Chart**.
+5. **Conversational Code Assistant Interface**: Slide-out interactive chat drawer grounded in OWASP knowledge base, with one-click quick actions (`⚡ Explain Root Cause`, `🛡️ Generate Remediation Fix`, `🧪 Generate Unit Test`) and direct clipboard copying.
+6. **Code Review Report Generation and Export Module**: Publication-grade PDF generator ([`backend/reports/pdf_generator.py`](backend/reports/pdf_generator.py)) with Before vs After code transformation cards, executive summary, prioritized roadmap, six-dimensional quality scorecard, and OASIS SARIF v2.1.0 standard exporter.
+
+---
+
+## 📅 Milestones Progress Tracking (100% Completed)
+
+### Milestone 1 (Week 1-2): Foundation & Knowledge Base — ✅ 100% Completed
+- [x] **Study OWASP standards**: Comprehensive review of OWASP Top 10 (2021/2026), ASVS, CWE taxonomy, and RAG architectures.
+- [x] **System Architecture Design**: Designed 5-agent pipeline, orchestration flows, REST API contracts, and React dashboard layout.
+- [x] **Code Submission Module**: Built dual-language editor supporting Python and Java with drag-and-drop file upload and zero-execution syntax validation.
+- [x] **Secure Coding Knowledge Base**: Curated 15 authentic OWASP cheat sheets, chunked into 521 passages, and built hybrid ChromaDB + TF-IDF vector index.
+
+### Milestone 2 (Week 3-4): Core Agents & Orchestration — ✅ 100% Completed
+- [x] **Code Analysis Agent**: Built AST parser detecting code smells (`SMELL-PY-*`, `SMELL-JV-*`), complexity (`COMPLEX-*`), design flaws (`DESIGN-*`), and poor practices (`PRACTICE-*`).
+- [x] **Security Vulnerability Agent**: Built deterministic scanners for SQLi (`SEC-*-001`), Command Injection (`SEC-*-002`), Secrets (`SEC-*-003`), Insecure Deserialization, Path Traversal, and Weak Cryptography.
+- [x] **Multi-Agent Orchestration**: Implemented `MultiAgentOrchestrator` running agents in parallel with unified deduplication and composite scoring.
+- [x] **Accuracy Validation**: Verified across sample Python and Java codebases containing known quality issues and vulnerabilities.
+
+### Milestone 3 (Week 5-6): Remediation & PR Review Automation — ✅ 100% Completed
+- [x] **Remediation Agent**: Built deterministic catalog producing actionable fix recommendations, corrected code, and unified diffs.
+- [x] **PR Summary Agent**: Implemented PR review summary compiler with merge verdict, interactive checklist, and prioritized fix lists (P0/P1/P2).
+- [x] **Findings Display Module**: Built clean developer portal with severity badges, real-time search, multi-criteria sorting, and code health indicators.
+- [x] **Conversational Code Assistant**: Implemented RAG-powered chat drawer grounded in OWASP knowledge base with citation linking.
+
+### Milestone 4 (Week 7-8): Reporting, Optimization & Verification — ✅ 100% Completed
+- [x] **Code Review Report Generation Module**: Built exportable PDF report ([`backend/reports/pdf_generator.py`](backend/reports/pdf_generator.py)) covering findings summary, severity breakdown, remediation roadmap, six-dimensional quality scorecard, and dedicated **Before vs After Code Transformations** (1st Before, 2nd After).
+- [x] **End-to-End Multi-Tier Testing**: Conducted testing across varied Python and Java code samples spanning 3 complexity tiers (Low, Moderate, High).
+- [x] **Agent Prompt & RAG Optimization**: Optimized prompt templates with anti-injection guardrails, query expansion for ChromaDB RAG, and centralized severity consistency.
+- [x] **Technical Documentation & Samples**: Prepared full technical reports, evaluation criteria compliance proof, and standalone sample code files in [`samples/`](samples/).
 
 ---
 
@@ -19,14 +99,11 @@ The platform guarantees **strict zero-execution static inspection** (submitted s
 
 ```mermaid
 flowchart TD
-    subgraph Client["Frontend Client (React 19 + Vite 8)"]
-        UI["Cybersecurity Developer Portal"]
-        Editor["Monospaced Code Editor & Samples"]
-        FindingsView["Severity-Categorized Findings & Remediation Panel"]
-        DiagnosticsView["Compiler Diagnostics Panel"]
-        KBView["OWASP Vector Retrieval Panel"]
-        PRModal["PR Summary & Review Modal"]
-        ChatDrawer["Conversational RAG Code Assistant"]
+    subgraph Clients["Frontend Clients (Dual-Interface Support)"]
+        UI["React 19 + Vite 8 Developer Portal<br/>(Monospace Editor, Live Gutters, Modals)"]
+        RadarUI["6-Dimensional Quality Radar Chart<br/>(SVG Radial Polygon, Interactive Vertices)"]
+        StreamlitApp["Streamlit Interactive UI (streamlit_app.py)<br/>(3-Tier Samples, Multi-Agent Tabs, Visual Metrics)"]
+        CLIApp["Terminal CLI Runner (backend/cli.py)<br/>(CI/CD Pipeline Gates, JSON/SARIF Output)"]
     end
 
     subgraph API["Backend API (Flask & FastAPI RESTful Engine)"]
@@ -41,10 +118,12 @@ flowchart TD
         KBSearchRoute["/api/knowledge/search"]
         AIRoute["/api/ai/explain"]
         ReportRoute["/api/reports/pdf"]
+        SARIFRoute["/api/reports/sarif"]
     end
 
     subgraph Orchestrator["Multi-Agent Orchestrator Pipeline"]
         direction TB
+        SevEngine["Centralized Severity Engine<br/>(backend/utils/severity_engine.py)"]
         CodeAgent["Code Analysis Agent<br/>(Smells, Complexity, Anti-Patterns)"]
         SecAgent["Security Vulnerability Agent<br/>(OWASP 2026, CWE Mappings)"]
         RemAgent["Remediation Agent<br/>(Corrected Code & Best Practices)"]
@@ -57,9 +136,11 @@ flowchart TD
         JavVal["Java Compiler Sandbox (javac -Xlint:all)"]
         PyRules["Python Deterministic Rule Engine"]
         JavRules["Java Deterministic Rule Engine"]
+        RiskyAST["Risky-Call AST Analyzer (Timeouts, Exceptions, Transactions)"]
         VectorDB["Hybrid Vector Engine (ChromaDB + TF-IDF)"]
         AIProvider["AI Advisory Agent (Gemini / Groq / Offline)"]
-        PDFGen["ReportLab PDF Document Builder"]
+        PDFGen["ReportLab Enterprise PDF Builder (Before vs After Cards)"]
+        SARIFGen["OASIS SARIF v2.1.0 Exporter"]
     end
 
     subgraph Knowledge["Authentic OWASP 2026 Knowledge Base"]
@@ -69,19 +150,23 @@ flowchart TD
     end
 
     UI --> API
+    RadarUI --> UI
+    StreamlitApp --> Orchestrator & VectorDB & PDFGen & SARIFGen
+    CLIApp --> Orchestrator & SARIFGen
     ValidateRoute --> PyVal & JavVal
-    AnalyzeRoute --> PyRules & JavRules
+    AnalyzeRoute --> PyRules & JavRules & RiskyAST
     OrchestrateRoute --> Orchestrator
     ChatRoute --> ChatAgent
     RemediateRoute --> RemAgent
     PRSummaryRoute --> PRAgent
-    Orchestrator --> CodeAgent & SecAgent & RemAgent & PRAgent
+    Orchestrator --> CodeAgent & SecAgent & RemAgent & PRAgent & SevEngine
     KBSearchRoute --> VectorDB
     VectorDB --> Knowledge
     ChatAgent --> VectorDB
     AIRoute --> AIProvider
     AIProvider --> VectorDB
     ReportRoute --> PDFGen
+    SARIFRoute --> SARIFGen
 ```
 
 ---
@@ -93,300 +178,304 @@ SmartCodeInspect/
 ├── .env.example                 # Root environment template (placeholders only)
 ├── .gitignore                   # Comprehensive security ignore rules (protects API keys)
 ├── LICENSE                      # MIT Open-Source License (2026)
+├── pyproject.toml               # Python project configuration & tool paths
+├── pyrefly.toml                 # Pyrefly language server configuration (VS Code zero-error)
 ├── README.md                    # Project documentation & execution guide
-├── zip_project.py               # Clean release packaging utility
-├── streamlit_app.py             # Alternative Streamlit exploratory interface
+├── streamlit_app.py             # Streamlit interactive application (Python frontend)
 │
-├── Infosys_Agile_Docs/          # Agile Project Management Deliverables
-│   ├── Agile_Template_v0.1.xls            # Sprint planning, backlog, standup & retrospection
-│   ├── Defect_Tracker Template_v0.1.xlsx  # Defect triage & bug lifecycle tracking
-│   └── Unit_Test_Plan_v0.1.xlsx           # Unit test scenarios & coverage plan
-│
-├── documentation/               # Technical & Architecture Specifications
-│   ├── ARCHITECTURE.md          # Architectural blueprints, data flow & formulas
-│   ├── SAMPLE_SCENARIOS.md      # 6 standard test scenarios with expected outcomes
-│   └── SECURITY.md              # Sandboxing guarantees, ReDoS prevention & privacy
-│
-├── backend/                     # Python Flask API & Core Analysis Engines
-│   ├── .env.example             # Backend environment template
-│   ├── app.py                   # Primary Flask application entry point
+├── backend/                     # Python 3.10+ Flask & FastAPI Backend Engine
+│   ├── app.py                   # Flask REST API factory & blueprint routing
+│   ├── fastapi_app.py           # High-performance FastAPI ASGI alternative
+│   ├── cli.py                   # Terminal CLI tool for CI/CD pipeline code analysis
 │   ├── config.py                # Centralized configuration & environment loader
-│   ├── fastapi_app.py           # Alternative FastAPI implementation
-│   ├── pytest.ini               # Pytest configuration
-│   ├── requirements.txt         # Python dependencies
-│   ├── agents/                  # Multi-Agent Orchestration & AI Consultation
-│   │   ├── orchestrator.py          # Parallel multi-agent runner, deduplication, scoring
-│   │   ├── code_analysis_agent.py   # Code smells, complexity, AST & structural analysis
-│   │   ├── security_agent.py        # OWASP standards, CWE mapping, SSRF, path traversal
-│   │   ├── remediation_agent.py     # Milestone 3: Specific fix recommendations & corrected code
-│   │   ├── pr_summary_agent.py      # Milestone 3: PR review summary, merge readiness & markdown
-│   │   ├── conversational_agent.py  # Milestone 3: RAG-powered interactive code assistant
-│   │   └── ai_provider.py           # Multi-provider LLM Advisory (Gemini / Groq / Offline)
-│   ├── analyzers/               # Deterministic security rule implementations
-│   ├── knowledge_base/          # Ingestion pipelines & semantic hybrid retriever
-│   │   ├── ingest.py                # Document chunking, TF-IDF and ChromaDB ingestion
-│   │   └── retriever.py             # Hybrid vector retriever with query normalization
-│   ├── reports/                 # ReportLab PDF executive report generator
-│   ├── routes/                  # Modular REST blueprints (health, validate, analyze, orchestrate, chat, remediate, pr_summary)
-│   ├── tests/                   # 82 automated unit, agent & Milestone 3 integration tests
-│   └── validators/              # AST parser & javac compiler subprocess wrappers
+│   ├── agents/                  # Multi-Agent Inspection & Intelligence Layer
+│   │   ├── code_analysis_agent.py   # Code Analysis Agent (Smells, complexity, AST risky calls)
+│   │   ├── security_agent.py        # Security Vulnerability Agent (OWASP & CWE mapping)
+│   │   ├── remediation_agent.py     # Remediation Agent (Catalog, patches, unified diffs)
+│   │   ├── pr_summary_agent.py      # PR Summary Agent (Merge verdicts, checklist, radar card)
+│   │   ├── conversational_agent.py  # Conversational Assistant (RAG grounded in ChromaDB)
+│   │   ├── orchestrator.py          # Multi-Agent Orchestrator (Parallel execution & deduplication)
+│   │   └── ai_provider.py           # Multi-provider LLM service (Gemini, Groq, local offline)
+│   ├── analyzers/               # Deterministic Static AST & Regex Parsers
+│   │   ├── python_analyzer.py       # Python AST analysis & rule runner
+│   │   ├── java_analyzer.py         # Java lexical, pattern & structural AST analysis
+│   │   └── rules/                   # Deterministic security rules
+│   │       ├── python_rules.py      # Rules: eval, exec, subprocess, SQLi, secrets, deserialization
+│   │       └── java_rules.py        # Rules: JDBC SQLi, Runtime.exec, secrets, ObjectInputStream, XXE
+│   ├── utils/                   # Shared Infrastructure Utilities
+│   │   └── severity_engine.py       # Centralized Severity Engine (Single source of truth)
+│   ├── validators/              # Zero-Execution Syntax Validation Engines
+│   │   ├── python_validator.py      # Python ast.parse validator & diagnostic reporter
+│   │   └── java_validator.py        # Java javac sandboxed compiler diagnostic engine
+│   ├── reports/                 # Publication-Grade Export Engines
+│   │   ├── pdf_generator.py         # ReportLab Enterprise PDF builder (Before vs After code cards)
+│   │   └── sarif_generator.py       # OASIS SARIF v2.1.0 standard exporter
+│   ├── routes/                  # Flask REST API Blueprints
+│   │   ├── validate.py              # POST /api/validate endpoint
+│   │   ├── analyze.py               # POST /api/analyze endpoint
+│   │   ├── chat.py                  # POST /api/chat endpoint
+│   │   ├── reports.py               # POST /api/reports/pdf & POST /api/reports/sarif
+│   │   └── knowledge.py             # GET /api/knowledge/status & POST /api/knowledge/search
+│   └── tests/                   # 125 Automated Pytest Test Suites (100% Passing)
+│       ├── test_analyzers_and_rules.py
+│       ├── test_api_endpoints.py
+│       ├── test_code_analysis_agent.py
+│       ├── test_conversational_agent.py
+│       ├── test_evaluation_criteria.py
+│       ├── test_java_validator.py
+│       ├── test_knowledge_base.py
+│       ├── test_multi_agent_orchestrator.py
+│       ├── test_multi_agent_pipeline_integration.py
+│       ├── test_multi_tier_code_analysis_e2e.py
+│       ├── test_pdf_export.py
+│       ├── test_pr_summary_agent.py
+│       ├── test_python_validator.py
+│       ├── test_remediation_agent.py
+│       ├── test_sarif_export.py
+│       ├── test_security_agent.py
+│       └── test_severity_engine_and_radar.py
 │
-├── frontend/                    # Modern React 19 + Vite 8 Dashboard
-│   ├── index.html               # Main HTML entry point
-│   ├── package.json             # NPM dependencies & scripts
-│   ├── vite.config.js           # Vite build and proxy configuration
-│   ├── public/                  # Static brand assets and SVGs
-│   └── src/
-│       ├── App.jsx              # Root reactive application component with Apply Fix integration
-│       ├── main.jsx             # React DOM entry point
-│       ├── components/          # Dashboard panels & modals
-│       │   ├── EditorPanel.jsx          # Monaco/custom code editor with drag-and-drop file upload
-│       │   ├── FindingsPanel.jsx        # Findings portal with Unified Diff, Search/Sort, Apply to Editor
-│       │   ├── PRSummaryModal.jsx       # PR Review summary modal with interactive checklist & .md export
-│       │   ├── ConversationalAssistant.jsx # RAG assistant drawer with finding context & quick action prompts
-│       │   ├── DiagnosticsPanel.jsx     # Compiler diagnostics & syntax verification panel
-│       │   ├── KnowledgeBasePanel.jsx   # OWASP semantic search & vector retrieval panel
-│       │   ├── Header.jsx               # Navigation bar & brand title
-│       │   └── StatusBar.jsx            # Real-time backend health & agent service monitoring
-│       ├── constants/           # Sample code files (vulnerable and secure code)
-│       ├── services/            # API communication services (REST & PDF downloads)
-│       └── utils/               # Universal clipboard & text manipulation utilities
+├── frontend/                    # React 19 + Vite 8 Developer Dashboard
+│   ├── src/
+│   │   ├── App.jsx                  # Main Dashboard Component & State Orchestration
+│   │   ├── components/              # Modular UI Components
+│   │   │   ├── EditorPanel.jsx          # Dual-Mode Monospace Editor, Live Gutters, 1-Click Fix All
+│   │   │   ├── RadarChart.jsx           # 6-Dimensional Quality Radar Chart (SVG Polygon)
+│   │   │   ├── FindingsPanel.jsx        # Findings Registry, Severity Badges, Search & Sorting
+│   │   │   ├── DiagnosticsPanel.jsx     # Real-Time Compiler Diagnostics & Quick Fix Buttons
+│   │   │   ├── KnowledgeBasePanel.jsx   # OWASP Vector Knowledge Browser & Search Interface
+│   │   │   ├── PRSummaryModal.jsx       # PR Review Verdict, Checklist & Markdown Exporter
+│   │   │   ├── ConversationalAssistant.jsx # Slide-Out RAG Assistant Drawer & Action Chips
+│   │   │   ├── AIModal.jsx              # Deep-Dive AI Security Advisory Modal
+│   │   │   ├── Header.jsx               # Navigation Bar & Brand Identity
+│   │   │   └── StatusBar.jsx            # Real-Time Service Health & Provider Indicators
+│   │   ├── constants/
+│   │   │   └── samples.js               # 3-Tier Multi-Language Test Samples
+│   │   └── services/
+│   │       └── api.js                   # Centralized REST API Service Client
+│   └── src/*.test.jsx               # 25 Automated Vitest Suites (100% Passing)
 │
-└── knowledge_base/              # Authentic Security Standards & Indexes
-    ├── documents/               # 15 Authentic OWASP Guidelines & Cheat Sheets (.md)
-    │   ├── owasp_top_10_2026.md                # OWASP Top 10: 2026 Standard (443 lines)
-    │   ├── owasp_ssrf_prevention.md            # SSRF Defense & DNS Rebinding (462 lines)
-    │   ├── owasp_path_traversal_prevention.md  # Path Traversal & Zip Slip (432 lines)
-    │   ├── owasp_api_security.md               # API Security Top 10 (384 lines)
-    │   ├── owasp_cryptographic_storage.md      # AEAD AES-256-GCM & Key Mgmt (372 lines)
-    │   ├── owasp_sql_injection_prevention.md   # SQLi & Parameterization (352 lines)
-    │   ├── owasp_deserialization_cheat_sheet.md# Deserialization & Gadget Chains (347 lines)
-    │   ├── owasp_secrets_management_cheat_sheet.md # Secrets Vaults & Redaction (345 lines)
-    │   ├── owasp_authentication_cheat_sheet.md # Argon2id, bcrypt, WebAuthn (342 lines)
-    │   ├── owasp_os_command_injection_defense.md # Command Injection Defense (327 lines)
-    │   ├── owasp_broken_access_control.md      # Access Control & IDOR Defense
-    │   ├── owasp_input_validation_cheat_sheet.md # Allowlist Validation
-    │   ├── owasp_secure_file_uploads.md        # File Upload Validation
-    │   ├── owasp_security_misconfiguration.md  # Configuration Hardening
-    │   └── owasp_xss_prevention.md             # Contextual Output Encoding
-    ├── index/                   # ChromaDB storage & pure-Python TF-IDF vector indexes
-    └── sources.json             # Document catalog with titles, URLs, and categories
+├── samples/                     # Standalone Multi-Tier Test Codebases
+│   ├── python/
+│   │   ├── 1_low_complexity_secure_calculator.py    # Low Complexity (Clean & Valid)
+│   │   ├── 2_moderate_complexity_pipeline.py        # Moderate Complexity (Smells & Resources)
+│   │   └── 3_high_complexity_vulnerable_service.py  # High Complexity (OWASP Vulnerabilities)
+│   └── java/
+│       ├── 1_low_complexity_secure_transfer.java    # Low Complexity (Clean & Secure)
+│       ├── 2_moderate_complexity_order_manager.java # Moderate Complexity (Smells & Complexity)
+│       └── 3_high_complexity_legacy_portal.java     # High Complexity (OWASP Vulnerabilities)
+│
+├── knowledge_base/              # Authentic OWASP 2026 Guidelines & Vector Database
+│   ├── documents/               # 15 Authentic Markdown Guidelines (10 >= 300 lines each)
+│   └── index/                   # ChromaDB Persistent Storage & Precomputed Embeddings
+│
+└── documentation/               # Comprehensive Project Architecture & Evaluation Reports
+    ├── ARCHITECTURE.md
+    ├── EVALUATION_CRITERIA_COMPLIANCE_REPORT.md
+    ├── FINAL_PROJECT_TECHNICAL_REPORT.md
+    ├── SAMPLE_SCENARIOS.md
+    └── SECURITY.md
 ```
 
 ---
 
-## ✨ Key Features & Capabilities
+## 🕸️ Six-Dimensional Quality Radar Chart
 
-### 1. Multi-Agent Orchestration Architecture
-- **Parallel Agent Execution**: Operates a concurrent `ThreadPoolExecutor` running the **Code Analysis Agent** and the **Security Vulnerability Agent** simultaneously.
-- **Code Analysis Agent**: Detects code smells (God functions, long parameter lists, high cognitive complexity), cyclomatic complexity branching, resource management leaks (unclosed files/streams), dead code, and poor coding conventions with calibrated severity scoring (`COMPLEX-PY-001`, `SMELL-PY-001`, `PRACTICE-PY-001` through `006`, and Java equivalents).
-- **Security Vulnerability Agent**: Scans for OWASP Top 10 vulnerabilities, maps exact Common Weakness Enumerations (CWE-22, CWE-78, CWE-89, CWE-502, CWE-798, CWE-918), validates URL schemes/destinations for SSRF, detects path traversal with canonical containment checks, and tags exact line and column locations with evidence snippets.
-- **Unified Finding Aggregator**: Deduplicates overlapping findings using composite category keys, calculates bounded Quality Scores (0–100), and assigns independent Security Posture Grades (A through F).
+The dashboard features an interactive **Six-Dimensional Code Quality Radar Chart** ([`frontend/src/components/RadarChart.jsx`](frontend/src/components/RadarChart.jsx)), positioned prominently in the left column directly below the Code Inspector box and above the OWASP Knowledge Retrieval section.
 
-### 2. Milestone 3 (Week 5–6): Remediation & PR Review Automation
-- **Remediation Agent**: Generates specific fix recommendations with production-grade corrected code examples and best practice explanations per finding. Includes an interactive **Unified Diff View** (`✨ Clean Code` vs `🔄 Unified Diff`) with red/green line visual contrast and a **`⚡ Apply to Editor`** button that replaces vulnerable lines in the active editor while preserving indentation.
-- **PR Summary Agent**: Compiles all multi-agent outputs into a structured pull request style review summary:
-  - **Verdict & Health Score**: Automated merge verdict (`Approved` vs `Changes Requested`), code quality score (0–100), and OWASP security posture grade.
-  - **Interactive Merge Readiness Checklist**: Stateful checklist with real-time percentage progress bar (`X/Y Completed`), item completion toggles, and celebration badge when 100% resolved.
-  - **Prioritized Fix Lists**: Granular P0 Blocker, P1 Important, and P2 Maintainability categorizations with inline `⚡ Apply to Editor` actions.
-  - **📥 Exportable Markdown Review Report**: One-click download of `${filename}_PULL_REQUEST_REVIEW.md` and direct clipboard copying for GitHub/GitLab PR comments.
-- **Findings Display Module**: Clean developer portal featuring severity-scored findings, CWE references, OWASP Top 10 mapping, live real-time search & filter bar, and multi-criteria sorting (by Severity, Line Number, or Rule ID).
-- **Conversational Code Assistant**: Interactive RAG-powered chat drawer grounded in the authentic **OWASP 2026 Knowledge Base**:
-  - **Active Finding Context Banner**: Binds selected finding's Rule ID, line, severity, and exact code evidence snippet.
-  - **3 One-Click Quick Actions**: `⚡ Explain Root Cause`, `🛡️ Generate Remediation Fix`, `🧪 Generate Unit Test`.
-  - **Dynamic Follow-Up Suggestion Chips**: Context-aware prompt suggestions displayed dynamically under assistant replies.
-  - **Direct Code Block Integration**: One-click `📋 Copy Code Snippet` and `⚡ Apply to Editor` buttons for assistant-generated patches.
+```
+Left Column (App.jsx)
+├── [ EditorPanel ] (Code Inspect Box with Monospace Line Gutters)
+│   └── 💡 Drag & drop a .py or .java file onto the editor...
+│
+├── [ 🕸️ 6-Dimensional Code Quality Radar Chart ]  <-- (NEW INTEGRATION)
+│   ├── SVG Radial Web & Data Polygon (Quality, Security, Complexity, Maintainability, Practices, Validation)
+│   └── Interactive Dimension Breakdown Card (Clickable Vertices, Status Badges, Deductions)
+│
+└── [ KnowledgeBasePanel ] (OWASP Knowledge Retrieval)
+    └── Vector Space Cosine Retrieval from official OWASP standards
+```
 
-### 3. Zero-Execution Static Security
-- Analyzes Python and Java code purely through Abstract Syntax Tree (AST) parsing, compiler diagnostics, and deterministic inspection rules.
-- **Never executes** submitted code, never uses `eval()` or `exec()`, and isolates compiler invocations in temporary, non-executable directories.
+### The 6 Evaluation Dimensions:
+1. **Security**: Evaluates exposure against OWASP Top 10 vulnerabilities (SQLi, command injection, hardcoded secrets, insecure deserialization, broken crypto).
+2. **Code Quality**: Measures clean code standards, dead/debug code removal (`print` statements), naming conventions, and compiler/syntax health.
+3. **Complexity**: Assesses cyclomatic complexity, deeply nested conditionals (>3 levels), and excessive boolean expressions.
+4. **Maintainability**: Analyzes design anti-patterns (god classes, long parameter lists, tight coupling, and low cohesion).
+5. **Best Practices**: Evaluates defensive resource management (try-with-resources, Python with-contexts, connection cleanup, and explicit network timeouts).
+6. **Input Validation**: Measures parameterized SQL/database APIs, argument sanitization, path boundary containment, and safe deserialization.
 
-### 4. Real Java Compiler Diagnostics
-- Invokes `javac -d <temp> -Xlint:all` with automated public class name extraction and a strict 10-second timeout ceiling (`shell=False`).
-- Surfaces real compiler syntax errors, missing imports, unhandled exceptions, and deprecation notices with exact line and column coordinates.
-
-### 5. Hybrid OWASP Knowledge Base (OWASP 2026 Standard)
-- Contains **10 comprehensive cheat sheets with at least 300 lines each** (spanning 327 to 462 lines), updated to the **2026 Edition (retrieved 2026-10-25)**.
-- Covers complete threat models, CWE classifications, vulnerable vs. secure code patterns in both Python 3.11+ and Java 17/21+, SAST detection rules, and security verification checklists.
-- Indexed across **521+ semantic chunks** into **ChromaDB** with a pure-Python TF-IDF vector space fallback engine (4,258 vocabulary terms).
-
-### 6. Multi-Provider AI Advisory with Explicit Disclosure
-- Supports **Google Gemini** (`gemini-3.8-flash`) and **Groq** (`llama-3.1-8b-instant`) with automatic fallback to an **Offline Curated Advisory** mode.
-- Complies with strict privacy standards: user consent is requested before any finding metadata is transmitted externally.
-
-### 7. Executive PDF Audit Reports
-- Automatically builds downloadable, multi-page PDF inspection reports complete with executive metadata, severity distribution charts, finding evidence snippets, and OWASP references using ReportLab.
-
-### 8. Infosys Agile Deliverables (`Infosys_Agile_Docs/`)
-- Bundled with complete Agile project management artifacts: Sprint Planning, Backlog, Standup & Retrospection (`Agile_Template_v0.1.xls`), Defect Tracking (`Defect_Tracker Template_v0.1.xlsx`), and Unit Test Coverage Plan (`Unit_Test_Plan_v0.1.xlsx`).
-
-### 9. Interactive Line-by-Line Code Inspector & Remediation Workflow
-- **Red Error Line Highlighting**: Vulnerable lines are immediately marked with red gutter badges and warning highlights following automated AST analysis.
-- **Interactive "Apply Fix" Line Transition**: Clicking "⚡ Fix Line" or "⚡ Apply to Editor" replaces the vulnerable line with the Remediation Agent's secure code and instantly transitions the highlight from **red to green** (`✅ Corrected / Remediated`).
-- **Dynamic Code Health Score Progression**: As issues are resolved one by one, the overall code health score increases incrementally towards **100/100**.
-- **Zero-Error Resolution**: Once all vulnerabilities are remediated, active error count reaches **0** and health score reaches **100/100** with celebratory clean code confirmation.
-- **Clean Code Export & Clipboard Copy**: Dedicated one-click actions to download clean Python (`.py`) or Java (`.java`) source files and copy the entire defect-free code directly to the clipboard.
+**Dynamic Re-Scoring**: Clicking **`⚡ Fix All`** remediates both vulnerabilities and compiler syntax diagnostics, dynamically updating all 6 radar dimensions and the composite health score to **100/100 (Hardened)** in real time.
 
 ---
 
-## 🚀 Quickstart Guide
+## ⚖️ Centralized Severity Engine
+
+To ensure mathematically sound scoring across all agents, [`backend/utils/severity_engine.py`](backend/utils/severity_engine.py) provides the single source of truth for severity ordering, penalty weights, and composite health score calculations:
+
+- **Baseline Starting Score**: Every file starts at `100 / 100`.
+- **Severity Penalty Weights**:
+  - **Critical**: `-35 points` per finding (Zero-tolerance blocker)
+  - **High**: `-20 points` per finding (Severe security flaw)
+  - **Medium**: `-10 points` per finding (Moderate defect / smell)
+  - **Low**: `-4 points` per finding (Minor style / hygiene divergence)
+  - **Informational**: `-1 point` per finding (Advisory suggestion)
+- **Cross-Agent Deduplication**: When multiple agents flag the same line or operation, findings are correlated and only deducted **once**.
+- **Composite PR Health Formula**:
+  $$\text{Composite Health Score} = \max\left(0, \min\left(100, 0.70 \times \text{Security Health} + 0.30 \times \text{Quality Score}\right)\right)$$
+- **Score Bands**: $\ge 90$ (Excellent/Hardened), $75-89$ (Good), $50-74$ (Needs Improvement), $<50$ (Critical Risk).
+
+---
+
+## 📄 Code Review Report Generation (PDF & SARIF)
+
+The platform generates publication-grade PDF code review reports ([`backend/reports/pdf_generator.py`](backend/reports/pdf_generator.py)) containing:
+1. **Executive Findings Summary & Metadata**: Target file, language, timestamp, lines audited, syntax integrity.
+2. **Overall Code Quality & Security Assessment**: Health score, quality score, security posture, PR merge verdict.
+3. **Six-Dimensional Radar Quality Scorecard**: Evaluation dimension table with scores and status badges.
+4. **Severity Breakdown & Category Distribution**: Critical through Informational distribution and penalty deductions.
+5. **Prioritized Remediation Roadmap**: P0 Blockers (immediate fix), P1 Important (<1 hour), P2 Hygiene (next sprint).
+6. **Code Transformation: Before & After Analysis (Issue by Issue)**:
+   - **🔴 1st: BEFORE REMEDIATION (Flagged Vulnerable Code)**: Line number, Courier snippet, tinted red background (`#FEF2F2`), root-cause mechanics.
+   - **🟢 2nd: AFTER REMEDIATION (Production-Grade Secure Implementation)**: Secure replacement code, tinted green background (`#F0FDF4`), explanatory inline comments.
+   - **Diff / Code Transformation Summary**: What was eliminated vs what was introduced.
+   - **Remediation Best Practices & Defensive Checklist**.
+   - **Authoritative Standards**: Clickable OWASP 2026 & CWE links.
+7. **System-Wide Before vs After Transformation Matrix**: Side-by-side comparison showing health score progression from initial score to 100/100, 0 active vulnerabilities, and approved merge gate.
+8. **Zero-Execution Security Bounds**: AST deterministic analysis guarantee.
+
+---
+
+## 🧪 Automated Testing (150 Total Tests Passing)
+
+### Backend Pytest Suite (125 Tests Passing — 100%)
+```bash
+backend\venv\Scripts\python.exe -m pytest backend\tests -v
+```
+```text
+======================= 125 passed, 1 warning in 14.02s =======================
+```
+* **16 dedicated test suites covering all tiers and agents**:
+  - `test_analyzers_and_rules.py` (13 tests): Deterministic rule detection (Python & Java)
+  - `test_api_endpoints.py` (9 tests): REST API endpoint contracts and JSON schemas
+  - `test_code_analysis_agent.py` (10 tests): Code smells, cyclomatic complexity, AST risky calls
+  - `test_conversational_agent.py` (9 tests): Conversational assistant, RAG retrieval, radar Q&A, line fixes
+  - `test_evaluation_criteria.py` (8 tests): Automated verification across all 6 project evaluation criteria
+  - `test_java_validator.py` (7 tests): Java compiler sandboxing and `javac` subprocess execution
+  - `test_knowledge_base.py` (7 tests): ChromaDB RAG, query expansion, dual-key compatibility
+  - `test_multi_agent_orchestrator.py` (7 tests): Parallel thread pools, error sanitization, scoring
+  - `test_multi_agent_pipeline_integration.py` (4 tests): Full multi-agent pipeline integration
+  - `test_multi_tier_code_analysis_e2e.py` (10 tests): End-to-end multi-tier code complexity testing (Low, Moderate, High)
+  - `test_pdf_export.py` (5 tests): PDF report generation, clean code, before/after cards, API endpoint
+  - `test_pr_summary_agent.py` (4 tests): PR review verdict, health scoring, checklist generation, markdown export
+  - `test_python_validator.py` (6 tests): Python AST parsing and syntax diagnostics
+  - `test_remediation_agent.py` (7 tests): Remediation catalog, patch formatting, risky-call rules
+  - `test_sarif_export.py` (2 tests): OASIS SARIF v2.1.0 schema compliance and API endpoints
+  - `test_security_agent.py` (6 tests): OWASP compliance, CWE mappings, SSRF, path traversal
+  - `test_severity_engine_and_radar.py` (11 tests): Centralized severity engine, 6D radar calculation, deduplication
+
+### Frontend Vitest Suite (25 Tests Passing — 100%)
+```bash
+npm test --prefix frontend -- --run
+```
+```text
+ Test Files  3 passed (3)
+      Tests  25 passed (25)
+   Duration  3.24s
+```
+* **3 dedicated test suites**:
+  - `App.test.jsx` (7 tests): Dashboard rendering, file inspection, PDF export triggers, sample selection
+  - `RadarChart.test.jsx` (7 tests): 6-dimensional polygon rendering, dynamic score updates, vertex interaction
+  - `ReviewAndRemediation.test.jsx` (11 tests): PR summary modal, 1-click patcher, checklist progress
+
+### Frontend Production Build
+```bash
+npm run build --prefix frontend
+```
+```text
+✓ 29 modules transformed.
+✓ built in 201ms
+```
+
+---
+
+## 🚀 Quickstart & Presentation Guide
 
 ### Prerequisites
-- **Python**: 3.10+ (tested on Python 3.14)
-- **Node.js**: v18+ (tested on Node v24.15)
-- **Java JDK**: JDK 17+ (`javac` must be accessible in your `PATH`)
+- **Python 3.10+** (tested on Python 3.10, 3.11, 3.12, 3.14)
+- **Node.js 18+** & npm
+- **Java JDK 17+** (`javac` available on PATH for Java compilation validation)
+- **VS Code** (zero Pyrefly errors configured via `pyproject.toml` and `pyrefly.toml`)
 
----
-
-### 1. Backend Setup
-
-```bash
-# Navigate to the backend directory
+### 1. Backend Setup & Startup
+```powershell
+# Open terminal in project root
 cd backend
-
-# Create and activate a virtual environment
 python -m venv venv
+venv\Scripts\activate
+pip install -r requirements.txt
 
-# Windows PowerShell:
-.\venv\Scripts\Activate.ps1
-# Linux / macOS:
-source venv/bin/activate
-
-# Install dependencies (use python -m pip if pip.exe is restricted)
-python -m pip install -r requirements.txt
-
-# Ingest and index the OWASP Knowledge Base into ChromaDB & TF-IDF
-python -c "from knowledge_base.ingest import run_ingestion; run_ingestion()"
-
-# Run all backend unit, agent & integration tests (82 tests)
-pytest -v
-
-# Start the Flask API server
+# Start Flask Backend API (Runs on http://localhost:5000)
 python app.py
 ```
-> The backend API server will start on **`http://127.0.0.1:5000`**.
 
----
-
-### 2. Frontend Setup
-
-```bash
-# Open a second terminal and navigate to frontend
+### 2. Frontend Setup & Startup
+```powershell
+# Open a second terminal in project root
 cd frontend
-
-# Install Node dependencies
 npm install
-
-# Run the automated frontend tests (Vitest + RTL)
-npm test -- --run
-
-# Start the local development server
 npm run dev
+# Dashboard launches on http://localhost:5173
 ```
-> The React dashboard will be accessible at **`http://127.0.0.1:5173`**.
+
+### 3. Alternative: Streamlit Interactive Demo
+```powershell
+# Run standalone Streamlit application (Runs on http://localhost:8501)
+streamlit run streamlit_app.py
+```
+
+### 4. Running the Tests
+```powershell
+# Run backend pytest suite
+backend\venv\Scripts\python.exe -m pytest backend\tests
+
+# Run frontend test suite
+npm test --prefix frontend -- --run
+```
 
 ---
 
-## ⚙️ Environment Variables Configuration
+## 🎯 Step-by-Step Mentor Demonstration Flow
 
-Copy the template configuration file:
-
-```bash
-# In the backend directory:
-cp .env.example .env
-```
-
-```ini
-# Flask Server Configuration
-FLASK_ENV=development
-FLASK_DEBUG=0
-HOST=127.0.0.1
-PORT=5000
-
-# Front-End Origin
-FRONTEND_ORIGIN=http://127.0.0.1:5173
-
-# Safety Limits
-MAX_SOURCE_BYTES=200000
-JAVA_COMPILE_TIMEOUT_SECONDS=10
-
-# AI Advisory Configuration (Optional)
-# Providers: 'gemini', 'groq', or 'offline'
-AI_PROVIDER=gemini
-GEMINI_API_KEY=your_gemini_api_key_here
-GEMINI_MODEL=gemini-3.8-flash
-GEMINI_MAX_RPM=10
-GEMINI_COOLDOWN_SECONDS=2.0
-```
-
-> **Note**: If `GEMINI_API_KEY` is not provided, the platform automatically runs in **Offline Advisory Mode** without errors.
+1. **Select a Sample Code**:
+   - In the top-right toolbar, choose **🔴 High: Vulnerable Service (Python)** or **🔴 High: Legacy Portal (Java)**.
+   - The editor populates with realistic code containing OWASP vulnerabilities and code smells.
+2. **Run Syntax Validation**:
+   - Click **`🔍 Validate Syntax`**. Real compiler sandboxing (`ast.parse` / `javac`) verifies syntax integrity without dynamic code execution.
+3. **Trigger Multi-Agent Inspection**:
+   - Click **`⚡ Inspect Code (Multi-Agent)`**.
+   - Watch the multi-agent pipeline trigger in parallel:
+     - Code Analysis Agent flags smells and cyclomatic complexity.
+     - Security Vulnerability Agent flags SQL injection, command injection, and secrets.
+     - Remediation Agent generates safe code replacement patches.
+     - PR Summary Agent compiles review verdict and merge checklist.
+4. **Explore the 6-Dimensional Quality Radar Chart**:
+   - Observe the radar polygon located directly below the code editor and above OWASP Knowledge Retrieval.
+   - Click on vertices (Security, Code Quality, Complexity, Maintainability, Practices, Validation) to inspect dimension breakdowns.
+5. **Test the Intelligent "Fix All" Workflow**:
+   - Click **`⚡ Fix All`** in the editor toolbar.
+   - Watch vulnerabilities and syntax errors resolve simultaneously.
+   - The Health Score dynamically updates to **100/100**, and all 6 radar dimensions expand to **100% (Hardened)**.
+6. **Download the PDF Audit Report**:
+   - Click **`📄 Export PDF Report`**.
+   - Open the generated PDF to review the findings summary, severity breakdown, remediation roadmap, six-dimensional quality scorecard, and dedicated **1st Before vs 2nd After** code transformation cards.
+7. **Ask the Conversational Assistant**:
+   - Click **`🤖 AI Code Assistant`**.
+   - Ask: *"What are the six dimensions of the radar chart?"* or *"How do I fix line 10?"*
+   - Receive grounded answers with OWASP citations and copy-pasteable safe code.
 
 ---
 
-## 📡 REST API Reference
+## 📄 License & Attribution
 
-| Endpoint | Method | Description |
-| :--- | :--- | :--- |
-| `/api/health` | `GET` | Verifies API health, `javac` availability, vector index status, and AI provider readiness. |
-| `/api/validate` | `POST` | Validates syntax for Python (AST) or Java (`javac`) without executing code. |
-| `/api/analyze` | `POST` | Executes complete AST parsing and deterministic security rule inspection. |
-| `/api/orchestrate` | `POST` | Executes parallel multi-agent analysis (Code Analysis + Security Vulnerability agents) with unified findings and security grade. |
-| `/api/remediate` | `POST` | **Milestone 3**: Remediation Agent generates specific fix recommendations, corrected code, and best practices. |
-| `/api/pr-summary` | `POST` | **Milestone 3**: PR Summary Agent compiles review verdict, P0/P1 fix lists, merge checklist, and markdown report. |
-| `/api/chat` | `POST` | **Milestone 3**: Conversational Code Assistant Q&A grounded in OWASP knowledge base with citation linking. |
-| `/api/knowledge/status` | `GET` | Returns the indexing status and chunk counts of the OWASP knowledge base. |
-| `/api/knowledge/search` | `POST` | Queries the hybrid Vector Space Model (ChromaDB + TF-IDF) over authentic OWASP standards. |
-| `/api/ai/explain` | `POST` | Returns safe, structured educational advice for a specific vulnerability finding. |
-| `/api/reports/pdf` | `POST` | Generates a binary PDF vulnerability report from inspection data. |
-
----
-
-## 🧪 Automated Testing
-
-### Backend Test Suite
-```bash
-cd backend
-pytest -v
-```
-* **82 passing tests** covering:
-  - Python AST parsing and syntax diagnostics
-  - Java compiler sandboxing and javac subprocess execution
-  - Deterministic security rule detection (Python & Java)
-  - Code Analysis Agent (code smells, complexity, anti-patterns, conventions)
-  - Security Vulnerability Agent (OWASP compliance, CWE mappings, SSRF, path traversal)
-  - Multi-Agent Orchestrator (parallel thread pools, timeout handling, error sanitization, deduplication, scoring)
-  - **Remediation Agent** (fix synthesis, corrected code generation, indentation formatting, best practices)
-  - **PR Summary Agent** (verdict decisioning, health scoring, prioritized fix lists, checklist generation, markdown export)
-  - **Conversational Code Assistant** (multi-turn conversation, RAG context retrieval, OWASP citations)
-  - **Milestone 3 End-to-End Orchestration** (multi-agent pipeline integration)
-  - OWASP RAG Pipeline (chunking, TF-IDF vector indexing, ChromaDB retrieval)
-  - ReportLab PDF generation
-  - REST API endpoint contracts and JSON schema validation
-
-### Frontend Test Suite
-```bash
-cd frontend
-npm test -- --run
-```
-* **14 passing Vitest + React Testing Library suites** verifying:
-  - Core application flow, AST diagnostics, and sample code workflows (`App.test.jsx`)
-  - **PR Summary Modal**: review verdict, health score calculation, interactive checklist progress tracker, and `.md` report download (`ReviewAndRemediation.test.jsx`)
-  - **Findings Panel**: severity scoring, live search filtering, sorting, Unified Diff view toggle, and one-click `⚡ Apply to Editor` (`ReviewAndRemediation.test.jsx`)
-  - **Conversational Assistant**: RAG OWASP citations, active finding context banner, 3 quick action prompts, and dynamic follow-up chips (`ReviewAndRemediation.test.jsx`)
-  - Drag-and-drop file upload on `EditorPanel` triggering real-time inspection (`ReviewAndRemediation.test.jsx`)
-
----
-
-## 📄 Technical Documentation
-
-For deeper architectural and security details, review the documentation files:
-* **[System Architecture](documentation/ARCHITECTURE.md)**: Architectural blueprints, component interactions, and vector mathematical formulations.
-* **[Security Policy & Sandboxing](documentation/SECURITY.md)**: Execution safety guarantees, ReDoS prevention, and privacy models.
-* **[Sample Scenarios & Test Payloads](documentation/SAMPLE_SCENARIOS.md)**: 6 standard inspection scenarios with expected outcomes.
-
----
-
-## 🛡️ License
-
-Distributed under the **MIT License**. See [`LICENSE`](LICENSE) for more information.
-Copyright (c) 2026 SmartCodeInspect Contributors.
+This project is licensed under the **MIT License** — see the [LICENSE](LICENSE) file for details.  
+All security standards and cheat sheets are referenced from the [OWASP Foundation](https://owasp.org/) under the Creative Commons Attribution-ShareAlike 4.0 International License.

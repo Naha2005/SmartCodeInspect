@@ -44,10 +44,12 @@ export function EditorPanel({
   useEffect(() => {
     if (language === 'python') {
       if (sourceCode === SAMPLE_CODES.python_valid.code) setSelectedSampleKey('python_valid');
+      else if (sourceCode === SAMPLE_CODES.python_moderate?.code) setSelectedSampleKey('python_moderate');
       else if (sourceCode === SAMPLE_CODES.python_vulnerable.code) setSelectedSampleKey('python_vulnerable');
       else setSelectedSampleKey('');
     } else if (language === 'java') {
       if (sourceCode === SAMPLE_CODES.java_valid.code) setSelectedSampleKey('java_valid');
+      else if (sourceCode === SAMPLE_CODES.java_moderate?.code) setSelectedSampleKey('java_moderate');
       else if (sourceCode === SAMPLE_CODES.java_vulnerable.code) setSelectedSampleKey('java_vulnerable');
       else setSelectedSampleKey('');
     }
@@ -408,11 +410,17 @@ export function EditorPanel({
             onChange={handleSampleSelect}
             value={selectedSampleKey}
           >
-            <option value="" disabled>Load Sample Code...</option>
-            <option value="python_vulnerable">⚠️ Vulnerable Python (OWASP Flaws)</option>
-            <option value="python_valid">✅ Valid Python (Secure Code)</option>
-            <option value="java_vulnerable">⚠️ Vulnerable Java (OWASP Flaws)</option>
-            <option value="java_valid">✅ Valid Java (Secure Code)</option>
+            <option value="" disabled>Load Complexity Sample...</option>
+            <optgroup label="🐍 Python Samples (3 Tiers)">
+              <option value="python_valid">🟢 Low: Secure Calculator (Clean)</option>
+              <option value="python_moderate">🟡 Moderate: Data Pipeline (Code Smells)</option>
+              <option value="python_vulnerable">🔴 High: Vulnerable Service (OWASP Flaws)</option>
+            </optgroup>
+            <optgroup label="☕ Java Samples (3 Tiers)">
+              <option value="java_valid">🟢 Low: Secure Banking (Clean)</option>
+              <option value="java_moderate">🟡 Moderate: Order Manager (Code Smells)</option>
+              <option value="java_vulnerable">🔴 High: Legacy Portal (OWASP Flaws)</option>
+            </optgroup>
           </select>
 
           {/* Hidden file input */}
@@ -717,15 +725,15 @@ export function EditorPanel({
               Score: {currentHealthScore}/100
             </span>
 
-            {activeErrorsCount > 0 && onFixAll && (
+            {(activeErrorsCount > 0 || activeSyntaxCount > 0) && onFixAll && (
               <button
                 type="button"
                 className="btn btn-primary"
                 onClick={onFixAll}
                 style={{ padding: '4px 12px', fontSize: '0.78rem' }}
-                title="Automatically apply all recommended remediations at once"
+                title="Automatically apply all recommended remediations and syntax fixes at once"
               >
-                ⚡ Fix All ({activeErrorsCount})
+                ⚡ Fix All ({activeErrorsCount + activeSyntaxCount})
               </button>
             )}
           </div>

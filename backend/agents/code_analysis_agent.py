@@ -27,6 +27,7 @@ class PythonCodeAnalysisVisitor(ast.NodeVisitor):
         self._current_nesting = 0
         self._current_function = None
         self._with_context_calls = with_context_calls or set()
+        self._in_try_block = 0
 
     def _get_line_snippet(self, lineno: int) -> str:
         if 1 <= lineno <= len(self.source_lines):
@@ -355,7 +356,9 @@ class PythonCodeAnalysisVisitor(ast.NodeVisitor):
 
     def visit_Try(self, node: ast.Try):
         self._check_nesting(node)
+        self._in_try_block += 1
         self.generic_visit(node)
+        self._in_try_block -= 1
         self._pop_nesting()
 
     def _check_nesting(self, node):
@@ -472,8 +475,16 @@ class PythonCodeAnalysisVisitor(ast.NodeVisitor):
     def visit_Call(self, node: ast.Call):
         line_no = getattr(node, "lineno", 1)
         func_name = ""
+        full_call_name = ""
         if isinstance(node.func, ast.Name):
             func_name = node.func.id
+            full_call_name = func_name
+        elif isinstance(node.func, ast.Attribute):
+            func_name = node.func.attr
+            if isinstance(node.func.value, ast.Name):
+                full_call_name = f"{node.func.value.id}.{func_name}"
+            elif isinstance(node.func.value, ast.Attribute) and isinstance(node.func.value.value, ast.Name):
+                full_call_name = f"{node.func.value.value.id}.{node.func.value.attr}.{func_name}"
 
         # Rule PRACTICE-PY-001: Print in Production Code
         if func_name == "print":
@@ -496,7 +507,6 @@ class PythonCodeAnalysisVisitor(ast.NodeVisitor):
             ))
 
         # Rule PRACTICE-PY-002: Resource Leak (open without with)
-        # AST-verified check: only flags open() when not part of a With context expression
         if func_name == "open":
             if node not in self._with_context_calls:
                 self.findings.append(Finding(
@@ -514,6 +524,71 @@ class PythonCodeAnalysisVisitor(ast.NodeVisitor):
                     owasp_references=["https://cwe.mitre.org/data/definitions/775.html"],
                     confidence="High",
                     category="Poor Coding Practice",
+                    agent=AGENT_NAME
+                ))
+
+        # Rule RISK-PY-001: Missing Timeout in Network Request
+        http_methods = ("requests.get", "requests.post", "requests.put", "requests.delete", "requests.patch", "requests.request", "urlopen", "urllib.request.urlopen")
+        if full_call_name in http_methods or (func_name in ("get", "post", "put", "delete") and full_call_name.startswith("requests.")):
+            has_timeout = any(getattr(kw, "arg", None) == "timeout" for kw in node.keywords)
+            if not has_timeout:
+                self.findings.append(Finding(
+                    rule_id="RISK-PY-001",
+                    title="Missing Timeout Configuration in Network Request",
+                    description=f"HTTP call '{full_call_name}()' lacks an explicit 'timeout' parameter.",
+                    severity="Medium",
+                    severity_score=5.0,
+                    language="python",
+                    line=line_no,
+                    column=getattr(node, "col_offset", 0),
+                    evidence=self._get_line_snippet(line_no),
+                    risk_explanation="Network calls without explicit timeouts can hang indefinitely if the remote server stalls, leading to thread and connection pool exhaustion.",
+                    mitigation="Add an explicit timeout parameter, e.g., 'requests.get(url, timeout=10.0)'.",
+                    owasp_references=["https://cwe.mitre.org/data/definitions/400.html"],
+                    confidence="High",
+                    category="Best Practice",
+                    agent=AGENT_NAME
+                ))
+
+            # Rule RISK-PY-002: Unhandled Network Call Exception
+            if self._in_try_block == 0:
+                self.findings.append(Finding(
+                    rule_id="RISK-PY-002",
+                    title="Unhandled Network Call Exception",
+                    description=f"Network operation '{full_call_name}()' executed without surrounding error handling.",
+                    severity="Medium",
+                    severity_score=5.5,
+                    language="python",
+                    line=line_no,
+                    column=getattr(node, "col_offset", 0),
+                    evidence=self._get_line_snippet(line_no),
+                    risk_explanation="Network requests may fail due to DNS failures, timeouts, connection resets, or HTTP errors. Missing try-except handling crashes worker threads.",
+                    mitigation="Wrap network calls in a 'try...except requests.RequestException:' block with appropriate error recovery or retry logic.",
+                    owasp_references=["https://cwe.mitre.org/data/definitions/390.html"],
+                    confidence="High",
+                    category="Best Practice",
+                    agent=AGENT_NAME
+                ))
+
+        # Rule RISK-PY-003: Unhandled Database Operation Exception
+        db_calls = ("sqlite3.connect", "psycopg2.connect", "pymysql.connect")
+        if full_call_name in db_calls or (func_name == "execute" and any(k in full_call_name.lower() for k in ("cursor", "conn", "db", "session"))):
+            if self._in_try_block == 0 and node not in self._with_context_calls:
+                self.findings.append(Finding(
+                    rule_id="RISK-PY-003",
+                    title="Unhandled Database Operation Exception",
+                    description=f"Database call '{full_call_name}()' executed outside of a transaction or exception handling block.",
+                    severity="Medium",
+                    severity_score=5.0,
+                    language="python",
+                    line=line_no,
+                    column=getattr(node, "col_offset", 0),
+                    evidence=self._get_line_snippet(line_no),
+                    risk_explanation="Database queries can fail due to connection drops, constraints, locks, or syntax errors, causing unhandled application crashes.",
+                    mitigation="Enclose database operations in a 'try...except sqlite3.Error:' block or use a transactional context manager with rollback capabilities.",
+                    owasp_references=["https://cwe.mitre.org/data/definitions/703.html"],
+                    confidence="High",
+                    category="Best Practice",
                     agent=AGENT_NAME
                 ))
 
@@ -807,6 +882,46 @@ class JavaCodeAnalysisScanner:
                     references=["https://cwe.mitre.org/data/definitions/775.html"],
                     confidence="High",
                     category="Poor Coding Practice"
+                )
+
+            # Rule RISK-JV-001: Unmanaged Database Connection / Statement
+            db_call_re = re.search(r'\b(?:DriverManager\.getConnection|createStatement|prepareStatement)\b', line)
+            if db_call_re and "try" not in line and not stripped.startswith("//"):
+                self._add(
+                    rule_id="RISK-JV-001",
+                    title="Unmanaged Database Resource without Try-With-Resources",
+                    description="JDBC Connection or Statement instantiated outside of a 'try (...) {' try-with-resources statement. Risk of JDBC connection pool exhaustion.",
+                    severity="Medium",
+                    severity_score=5.5,
+                    language="java",
+                    line=line_idx,
+                    column=0,
+                    evidence=stripped,
+                    risk_explanation="Leaked JDBC connections exhaust database connection pools and degrade database responsiveness.",
+                    mitigation="Declare the JDBC Connection/Statement within a 'try (Connection conn = ...) {' try-with-resources block.",
+                    references=["https://docs.oracle.com/javase/tutorial/essential/exceptions/tryResourceClose.html"],
+                    confidence="High",
+                    category="Best Practice"
+                )
+
+            # Rule RISK-JV-002: Missing Connection Timeout on Java Network Call
+            net_call_re = re.search(r'\b(?:\.openConnection\(\)|new\s+Socket\()\b', line)
+            if net_call_re and "try" not in line and not stripped.startswith("//"):
+                self._add(
+                    rule_id="RISK-JV-002",
+                    title="Missing Timeout Configuration on Java Network Call",
+                    description="Java network connection opened without immediate explicit connect or read timeout parameters.",
+                    severity="Medium",
+                    severity_score=5.0,
+                    language="java",
+                    line=line_idx,
+                    column=0,
+                    evidence=stripped,
+                    risk_explanation="Network calls without timeouts hang indefinitely when remote services become unresponsive.",
+                    mitigation="Call 'connection.setConnectTimeout(5000)' and 'connection.setReadTimeout(10000)' immediately after opening the connection.",
+                    references=["https://cwe.mitre.org/data/definitions/400.html"],
+                    confidence="High",
+                    category="Best Practice"
                 )
 
             # Check complex boolean expressions in masked code

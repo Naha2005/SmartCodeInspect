@@ -136,6 +136,11 @@ export function FindingsPanel({
     return { background: 'rgba(239, 68, 68, 0.2)', color: '#f87171', border: '1px solid rgba(239, 68, 68, 0.4)' };
   };
 
+  const activeFindings = findings.filter((f) => {
+    const findingKey = `${f.rule_id || 'RULE'}-${f.line || 0}-${(f.evidence || '').slice(0, 30)}`;
+    return !fixedFindingKeys?.has(findingKey) && !fixedLinesMap?.[f.line];
+  });
+
   return (
     <div className="glass-panel" style={{ padding: '24px' }} id="findings-panel">
       {/* Header and Summary stats */}

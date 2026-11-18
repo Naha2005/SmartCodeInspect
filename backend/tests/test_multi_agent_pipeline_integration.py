@@ -32,7 +32,7 @@ def process_data(a, b, c, d, e, f):
 """
 
 
-def test_milestone3_orchestration_complete_flow(orchestrator):
+def test_multi_agent_pipeline_complete_flow(orchestrator):
     result = orchestrator.run_parallel_analysis(SAMPLE_CODE, language="python", filename="data_processor.py")
 
     # 1. Base pipeline assertions

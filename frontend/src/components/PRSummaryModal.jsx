@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { copyToClipboard } from '../utils/clipboard';
+import { api } from '../services/api';
 
 export function PRSummaryModal({
   prSummary,
@@ -12,6 +13,7 @@ export function PRSummaryModal({
 }) {
   const [copied, setCopied] = useState(false);
   const [downloaded, setDownloaded] = useState(false);
+  const [downloadingSarif, setDownloadingSarif] = useState(false);
   const [activeTab, setActiveTab] = useState('overview'); // 'overview' | 'fixes' | 'markdown'
   const [fixFilter, setFixFilter] = useState('all'); // 'all' | 'p0' | 'p1'
   const [copiedCodeIdx, setCopiedCodeIdx] = useState(null);
@@ -92,6 +94,30 @@ export function PRSummaryModal({
     URL.revokeObjectURL(url);
     setDownloaded(true);
     setTimeout(() => setDownloaded(false), 2500);
+  };
+
+  const handleDownloadSarif = async () => {
+    try {
+      setDownloadingSarif(true);
+      const allFindings = [
+        ...(prioritized.p0_blockers || []),
+        ...(prioritized.p1_important || []),
+        ...(prioritized.p2_maintainability || [])
+      ];
+      await api.downloadSarifReport({
+        analysisData: {
+          findings: allFindings,
+          summary: summary || prSummary.severity_breakdown || {},
+          filename: filename || 'inspected_source',
+          language: language || 'python'
+        },
+        filename: filename || 'audit_report'
+      });
+    } catch (err) {
+      console.error('Failed to export SARIF report:', err);
+    } finally {
+      setDownloadingSarif(false);
+    }
   };
 
   const isApproved = verdict.decision === 'APPROVED' || healthScore === 100;
@@ -209,6 +235,15 @@ export function PRSummaryModal({
           </div>
 
           <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+            <button
+              type="button"
+              className="btn btn-secondary"
+              onClick={handleDownloadSarif}
+              style={{ fontSize: '0.8rem', padding: '6px 14px' }}
+              title="Download OASIS SARIF v2.1.0 report for GitHub Code Scanning"
+            >
+              {downloadingSarif ? 'Exporting SARIF...' : '🛡️ Export SARIF'}
+            </button>
             <button
               type="button"
               className="btn btn-secondary"
@@ -706,6 +741,15 @@ export function PRSummaryModal({
             style={{ fontSize: '0.82rem', padding: '7px 16px' }}
           >
             Close
+          </button>
+          <button
+            type="button"
+            className="btn btn-secondary"
+            onClick={handleDownloadSarif}
+            style={{ fontSize: '0.82rem', padding: '7px 16px' }}
+            title="Download OASIS SARIF v2.1.0 standard report"
+          >
+            {downloadingSarif ? 'Exporting SARIF...' : '🛡️ Export SARIF'}
           </button>
           <button
             type="button"

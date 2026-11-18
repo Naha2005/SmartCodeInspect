@@ -78,115 +78,138 @@ def calculate_discount(price, discount_percent):
 - **Expected Validation Result**: `valid_syntax: true`
 - **Expected Findings Count**: `7`
   - `SEC-PY-001` (Critical): Arbitrary code execution via `eval(user_param)`
-  - `SEC-PY-002` (Critical): OS Command Injection via `subprocess.Popen(..., shell=True)`
-  - `SEC-PY-003` (High): SQL Injection via `cursor.execute(f"SELECT ... '{user_param}'")`
-  - `SEC-PY-004` (High): Hardcoded secret in `API_SECRET_KEY`
-  - `SEC-PY-004` (High): Hardcoded secret in `DB_PASS`
-  - `SEC-PY-005` (Critical): Insecure deserialization via `pickle.loads(untrusted_stream)`
-  - `SEC-PY-006` (Medium): Weak cryptographic hash via `hashlib.md5()`
+  - `SEC-PY-002` (Critical): OS Command Injection via `subprocess.call(cmd, shell=True)`
+  - `SEC-PY-003` (Critical): SQL Injection via raw f-string query formatting
+  - `SEC-PY-004` (High): Hardcoded database credential string (`SECRET_KEY_DB`)
+  - `SEC-PY-005` (High): Insecure deserialization via `pickle.loads(raw_token)`
+  - `SEC-PY-006` (Medium): Weak hash algorithm via `hashlib.md5(data)`
+  - `PRACTICE-PY-002` (Medium): Unclosed file handle without context manager
 
 ### Source Code
 ```python
 import os
-import subprocess
-import pickle
-import hashlib
 import sqlite3
+import subprocess
+import hashlib
+import pickle
 
-# VULNERABILITY: Hardcoded API credentials
-API_SECRET_KEY = "AIzaSyD-untrusted-production-key-999"
-DB_PASS = "SuperSecretPassword123!"
+DB_PASSWORD = "HardcodedSuperSecret2026!#"
 
-def process_user_query(user_param: str):
-    # VULNERABILITY: Arbitrary code execution via eval()
-    evaluated = eval(user_param)
-    
+def run_user_code(user_param):
+    # VULNERABILITY: Arbitrary code execution via eval
+    return eval(user_param)
+
+def execute_system_command(target_host):
     # VULNERABILITY: OS Command Injection via shell=True
-    subprocess.Popen("ping -c 1 " + user_param, shell=True)
-    
-    # VULNERABILITY: SQL Injection via unescaped string formatting
+    cmd = f"ping -c 1 {target_host}"
+    return subprocess.call(cmd, shell=True)
+
+def search_user(username):
     conn = sqlite3.connect("users.db")
     cursor = conn.cursor()
-    cursor.execute(f"SELECT * FROM accounts WHERE username = '{user_param}'")
-    
-    return evaluated
+    # VULNERABILITY: SQL Injection via unparameterized f-string
+    query = f"SELECT * FROM accounts WHERE user = '{username}'"
+    cursor.execute(query)
+    return cursor.fetchall()
 
-def deserialize_state(untrusted_stream):
+def load_session_payload(serialized_bytes):
     # VULNERABILITY: Insecure Deserialization via pickle
-    return pickle.loads(untrusted_stream)
+    return pickle.loads(serialized_bytes)
 
-def hash_user_password(password: str) -> str:
-    # VULNERABILITY: Weak broken cryptographic hash (MD5)
-    return hashlib.md5(password.encode()).hexdigest()
+def generate_checksum(data):
+    # VULNERABILITY: Cryptographically broken MD5 hash
+    return hashlib.md5(data.encode()).hexdigest()
+
+def read_log_unclosed(filepath):
+    # CODE SMELL: Unmanaged file handle without with-context
+    f = open(filepath, "r")
+    content = f.read()
+    return content
 ```
 
 ---
 
-## Scenario 4: Valid Java (Secure Banking Transfer)
+## Scenario 4: Valid Java (Thread-Safe Bank Ledger)
 - **Target File**: `SecureBankTransfer.java`
 - **Language**: Java
 - **UI Dropdown**: `✅ Valid Java (Secure Code)`
-- **Expected Validation Result**: `valid_syntax: true` (`javac` compilation succeeded)
+- **Expected Validation Result**: `valid_syntax: true`
 - **Expected Findings Count**: `0`
 
 ### Source Code
 ```java
 import java.math.BigDecimal;
-import java.security.MessageDigest;
-import java.nio.charset.StandardCharsets;
+import java.util.Objects;
+import java.util.concurrent.locks.ReentrantLock;
 
 public class SecureBankTransfer {
     private final String accountId;
     private BigDecimal balance;
+    private final ReentrantLock lock = new ReentrantLock();
 
     public SecureBankTransfer(String accountId, BigDecimal initialBalance) {
-        this.accountId = accountId;
-        this.balance = initialBalance;
+        this.accountId = Objects.requireNonNull(accountId, "Account ID cannot be null");
+        this.balance = Objects.requireNonNull(initialBalance, "Initial balance cannot be null");
     }
 
-    public synchronized void transfer(BigDecimal amount) {
-        if (amount.compareTo(BigDecimal.ZERO) > 0 && this.balance.compareTo(amount) >= 0) {
-            this.balance = this.balance.subtract(amount);
-            System.out.println("Transfer successful. New balance: " + this.balance);
-        } else {
-            System.out.println("Insufficient funds or invalid transfer amount.");
+    public boolean transferFunds(SecureBankTransfer target, BigDecimal amount) {
+        if (amount.compareTo(BigDecimal.ZERO) <= 0) {
+            throw new IllegalArgumentException("Transfer amount must be strictly positive");
+        }
+        lock.lock();
+        try {
+            if (this.balance.compareTo(amount) >= 0) {
+                this.balance = this.balance.subtract(amount);
+                target.deposit(amount);
+                return true;
+            }
+            return false;
+        } finally {
+            lock.unlock();
         }
     }
 
-    public static byte[] hashAuditTrail(String auditData) throws Exception {
-        MessageDigest digest = MessageDigest.getInstance("SHA-256");
-        return digest.digest(auditData.getBytes(StandardCharsets.UTF_8));
+    public void deposit(BigDecimal amount) {
+        lock.lock();
+        try {
+            this.balance = this.balance.add(amount);
+        } finally {
+            lock.unlock();
+        }
     }
 
-    public static void main(String[] args) throws Exception {
-        SecureBankTransfer account = new SecureBankTransfer("ACC-10492", new BigDecimal("1500.00"));
-        account.transfer(new BigDecimal("250.00"));
+    public BigDecimal getBalance() {
+        lock.lock();
+        try {
+            return this.balance;
+        } finally {
+            lock.unlock();
+        }
     }
 }
 ```
 
 ---
 
-## Scenario 5: Compilation-Broken Java
+## Scenario 5: Compiler-Broken Java
 - **Target File**: `BrokenCompilerDemo.java`
 - **Language**: Java
 - **UI Action**: Paste into editor and click **🔍 Validate Syntax**
 - **Expected Validation Result**: `valid_syntax: false`
-- **Expected Diagnostics**: Genuine OpenJDK `javac` compiler errors reporting missing semicolons and unclosed string literals with exact line and column coordinates.
+- **Expected Diagnostics**: 3 discrete javac errors (`';' expected`, `cannot find symbol: variable missingSymbol`, `reached end of file while parsing`).
 
 ### Source Code
 ```java
 public class BrokenCompilerDemo {
-    public static void main(String[] args) {
-        int balance = 100
-        System.out.println("Unclosed string literal);
+    public void brokenMethod() {
+        int x = 100 // missing semicolon
+        missingSymbol = x + 5;
     }
-}
 ```
 
 ---
 
-## Scenario 6: Vulnerable Java (Multi-Flaw Inspection)
+## Scenario 6: Vulnerable Java (OWASP Exploit Suite)
 - **Target File**: `LegacyPortalService.java`
 - **Language**: Java
 - **UI Dropdown**: `⚠️ Vulnerable Java (OWASP Flaws)`
@@ -236,3 +259,23 @@ public class LegacyPortalService {
     }
 }
 ```
+
+---
+
+## 📁 Standalone 3-Tier Code Samples Directory
+
+For convenient offline review, drag-and-drop testing, and file-upload inspection, the repository includes ready-to-test standalone files in the `samples/` directory:
+
+```text
+samples/
+├── python/
+│   ├── 1_low_complexity_secure_calculator.py     (🟢 Low: Clean math engine, 100/100)
+│   ├── 2_moderate_complexity_pipeline.py         (🟡 Moderate: Data pipeline with code smells)
+│   └── 3_high_complexity_vulnerable_service.py    (🔴 High: OWASP exploits, SQLi, RCE, Deserialization)
+└── java/
+    ├── 1_low_complexity_secure_transfer.java     (🟢 Low: Thread-safe banking logic, 100/100)
+    ├── 2_moderate_complexity_order_manager.java  (🟡 Moderate: Order manager with anti-patterns)
+    └── 3_high_complexity_legacy_portal.java      (🔴 High: OWASP exploits, SQLi, exec, hardcoded keys)
+```
+
+Each sample can be directly uploaded via the **📁 Upload Source** button or dragged & dropped into the Code Editor for automatic language detection and scanning.

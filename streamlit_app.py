@@ -93,10 +93,59 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-# Sample Code Library
-SAMPLE_PYTHON = '''import os
+# Sample Code Library (3 Distinct Complexity Tiers)
+SAMPLE_PYTHON_CLEAN = '''import math
+from typing import List, Union
+
+def calculate_statistics(numbers: List[Union[int, float]]) -> dict:
+    """Safely calculate basic statistical metrics without eval or unsafe execution."""
+    if not numbers:
+        return {"mean": 0.0, "variance": 0.0, "std_dev": 0.0}
+    
+    mean = sum(numbers) / len(numbers)
+    variance = sum((x - mean) ** 2 for x in numbers) / len(numbers)
+    std_dev = math.sqrt(variance)
+    
+    return {
+        "count": len(numbers),
+        "mean": round(mean, 4),
+        "variance": round(variance, 4),
+        "std_dev": round(std_dev, 4)
+    }
+'''
+
+SAMPLE_PYTHON_MODERATE = '''import json
+from typing import Dict, Any, List
+
+# Quality: Mutable default argument anti-pattern
+def process_pipeline_batch(records: List[Dict[str, Any]], error_log=[]):
+    """Processes batch ETL records with maintainability smells."""
+    # Quality: Print statement in production
+    print(f"Starting batch of {len(records)} items")
+    
+    # Quality: Resource leak / unmanaged file descriptor
+    metrics_file = open("pipeline.log", "a")
+    metrics_file.write(f"Processed: {len(records)}\\n")
+    
+    results = []
+    for item in records:
+        if item.get("status") == "ACTIVE":
+            results.append(item.get("id"))
+        else:
+            # Quality: Silenced error / empty exception handler
+            try:
+                error_log.append(item.get("id"))
+            except Exception:
+                pass
+                
+    metrics_file.close()
+    return results
+'''
+
+SAMPLE_PYTHON_VULNERABLE = '''import os
 import subprocess
 import sqlite3
+import pickle
 
 def run_user_cmd(cmd):
     # SEC-PY-002 OS Command Injection
@@ -114,7 +163,55 @@ def dangerous_exec(code):
     eval(code)
 '''
 
-SAMPLE_JAVA = '''import java.sql.*;
+SAMPLE_JAVA_CLEAN = '''import java.math.BigDecimal;
+import java.security.MessageDigest;
+import java.nio.charset.StandardCharsets;
+
+public class SecureBankTransfer {
+    private final String accountId;
+    private BigDecimal balance;
+
+    public SecureBankTransfer(String accountId, BigDecimal initialBalance) {
+        this.accountId = accountId;
+        this.balance = initialBalance;
+    }
+
+    public synchronized void transfer(BigDecimal amount) {
+        if (amount != null && amount.compareTo(BigDecimal.ZERO) > 0 && this.balance.compareTo(amount) >= 0) {
+            this.balance = this.balance.subtract(amount);
+        }
+    }
+}
+'''
+
+SAMPLE_JAVA_MODERATE = '''import java.util.*;
+
+public class OrderNotificationManager {
+    // Quality: Long parameter list smell
+    public void dispatchOrderAlert(
+        long orderId,
+        String customerEmail,
+        String customerPhone,
+        double orderTotal,
+        int priorityTier,
+        boolean isExpressShipping,
+        String destinationRegion
+    ) {
+        // Quality: Console output left in production code
+        System.out.println("Processing order: " + orderId);
+
+        // Quality: Empty catch block / swallowed exception
+        try {
+            if (orderTotal > 0) {
+                // routing logic
+            }
+        } catch (Exception e) {
+        }
+    }
+}
+'''
+
+SAMPLE_JAVA_VULNERABLE = '''import java.sql.*;
 import java.io.IOException;
 
 public class SecurityDemo {
@@ -155,8 +252,13 @@ with st.sidebar:
     )
 
     sample_choice = st.selectbox(
-        "Load Sample Template",
-        options=["None", "Vulnerable Sample"]
+        "Load Sample Template (3 Tiers)",
+        options=[
+            "None",
+            "🟢 Low Complexity: Clean & Secure",
+            "🟡 Moderate Complexity: Code Smells",
+            "🔴 High Complexity: OWASP Vulnerable"
+        ]
     )
 
     if st.button("🔄 Reindex ChromaDB", use_container_width=True):
@@ -171,8 +273,12 @@ st.markdown('<div class="sub-header">Zero-Execution AST Static Security Analysis
 
 # Default code value
 default_code = ""
-if sample_choice == "Vulnerable Sample":
-    default_code = SAMPLE_PYTHON if language == "Python" else SAMPLE_JAVA
+if "Low Complexity" in sample_choice:
+    default_code = SAMPLE_PYTHON_CLEAN if language == "Python" else SAMPLE_JAVA_CLEAN
+elif "Moderate Complexity" in sample_choice:
+    default_code = SAMPLE_PYTHON_MODERATE if language == "Python" else SAMPLE_JAVA_MODERATE
+elif "High Complexity" in sample_choice or sample_choice == "Vulnerable Sample":
+    default_code = SAMPLE_PYTHON_VULNERABLE if language == "Python" else SAMPLE_JAVA_VULNERABLE
 
 # Code Input
 col_editor, col_search = st.columns([7, 3])
@@ -239,11 +345,10 @@ if do_analyze and source_code.strip():
 
         # Generate PR Summary with PR Summary Agent
         pr_agent = get_pr_summary_agent()
-        pr_summary = pr_agent.generate_summary(
+        pr_summary = pr_agent.generate_pr_summary(
             findings=enriched_findings,
             summary=orch_res.get("summary", {}),
-            filename=filename,
-            language=lang_key
+            metadata={"filename": filename, "language": lang_key}
         )
 
         st.session_state["latest_analysis"] = {
@@ -282,6 +387,27 @@ if "latest_analysis" in st.session_state:
         m4.metric("High", summary.get("high", 0))
         m5.metric("Medium", summary.get("medium", 0))
         m6.metric("Low", summary.get("low", 0))
+
+        # ── 6-DIMENSIONAL QUALITY RADAR OVERVIEW ──
+        radar_scores = summary.get("radar_scores")
+        if radar_scores:
+            st.markdown("##### 🕸️ 6-Dimensional Code Quality Assessment")
+            r1, r2, r3, r4, r5, r6 = st.columns(6)
+            dims = [
+                ("Code Quality", "🔍", r1),
+                ("Security", "🛡️", r2),
+                ("Complexity", "⚡", r3),
+                ("Maintainability", "🧩", r4),
+                ("Best Practices", "✨", r5),
+                ("Input Validation", "🚪", r6),
+            ]
+            for name, icon, col in dims:
+                val = radar_scores.get(name, 100)
+                col.metric(f"{icon} {name}", f"{val}/100")
+
+            breakdown = summary.get("score_breakdown")
+            if breakdown and breakdown.get("narrative_explanation"):
+                st.caption(f"ℹ️ **Scoring Engine Explanation:** {breakdown['narrative_explanation']}")
 
         if findings:
             for idx, f in enumerate(findings):

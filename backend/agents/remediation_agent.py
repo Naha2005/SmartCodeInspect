@@ -1235,6 +1235,252 @@ REMEDIATION_CATALOG: Dict[str, Dict[str, Any]] = {
         ],
         "diff_example": "// Replace try { ... } finally { in.close(); } with try (in) { ... }",
         "references": ["https://docs.oracle.com/javase/tutorial/essential/exceptions/tryResourceClose.html"]
+    },
+
+    # -------------------------------------------------------------
+    # Context-Aware Risky Call Exception Rules
+    # -------------------------------------------------------------
+    "RISK-PY-001": {
+        "title": "Configure Explicit Timeout on Python Network Operations",
+        "recommendation": (
+            "Always specify an explicit timeout parameter (e.g. timeout=5.0 or timeout=(3.05, 10.0)) "
+            "when invoking network operations like requests.get() or requests.post(). "
+            "Without an explicit timeout, requests will block indefinitely if the remote server fails to respond, "
+            "exhausting thread pools and causing denial of service."
+        ),
+        "corrected_code": (
+            "import requests\n\n"
+            "# Configured with explicit connect (3.05s) and read (10.0s) timeouts:\n"
+            "try:\n"
+            "    response = requests.get('https://api.example.com/data', timeout=(3.05, 10.0))\n"
+            "    response.raise_for_status()\n"
+            "    data = response.json()\n"
+            "except requests.exceptions.Timeout:\n"
+            "    logger.error('Request timed out connecting to upstream service')\n"
+            "except requests.exceptions.RequestException as err:\n"
+            "    logger.error(f'Network error: {err}')"
+        ),
+        "explanation": (
+            "Network calls without timeouts are vulnerable to CWE-400 (Uncontrolled Resource Consumption). "
+            "If an external server drops packets or hangs, client threads remain locked in I/O wait, "
+            "ultimately crashing web workers or microservices."
+        ),
+        "best_practices": [
+            "OWASP A05:2021 - Security Misconfiguration / Denial of Service Prevention",
+            "Always pass a timeout float or tuple to requests calls",
+            "Implement circuit breakers and retries with exponential backoff",
+            "Set appropriate connection and read timeouts based on SLA"
+        ],
+        "diff_example": (
+            "# BEFORE (VULNERABLE):\n"
+            "# resp = requests.get(url)\n\n"
+            "# AFTER (REMEDIATED):\n"
+            "resp = requests.get(url, timeout=5.0)"
+        ),
+        "references": [
+            "https://requests.readthedocs.io/en/latest/user/advanced/#timeouts",
+            "https://cwe.mitre.org/data/definitions/400.html"
+        ]
+    },
+
+    "RISK-PY-002": {
+        "title": "Handle Network-Specific Exceptions with Proper Try-Except Block",
+        "recommendation": (
+            "Wrap all outbound network and socket operations in explicit try-except blocks handling "
+            "requests.exceptions.RequestException, socket.error, or urllib.error.URLError. "
+            "Avoid letting raw socket errors bubble up to unhandled server crashes."
+        ),
+        "corrected_code": (
+            "import requests\n"
+            "import logging\n\n"
+            "logger = logging.getLogger(__name__)\n\n"
+            "def fetch_remote_resource(url: str):\n"
+            "    try:\n"
+            "        resp = requests.get(url, timeout=5.0)\n"
+            "        resp.raise_for_status()\n"
+            "        return resp.json()\n"
+            "    except requests.exceptions.HTTPError as err:\n"
+            "        logger.error(f'HTTP error: {err}')\n"
+            "    except requests.exceptions.ConnectionError as err:\n"
+            "        logger.error(f'Connection failed: {err}')\n"
+            "    except requests.exceptions.Timeout as err:\n"
+            "        logger.error(f'Request timed out: {err}')\n"
+            "    except requests.exceptions.RequestException as err:\n"
+            "        logger.error(f'General network exception: {err}')\n"
+            "    return None"
+        ),
+        "explanation": (
+            "Outbound network calls fail unpredictably due to DNS resolution errors, dropped packets, "
+            "TLS handshake failures, and server restarts. Without robust error handling, an unhandled "
+            "exception terminates process threads and degrades application availability."
+        ),
+        "best_practices": [
+            "Catch requests.RequestException as the base network exception",
+            "Differentiate between timeouts, HTTP client errors, and connection drops",
+            "Log structured error telemetry for production monitoring"
+        ],
+        "diff_example": (
+            "# BEFORE:\n"
+            "# return requests.get(url, timeout=5).json()\n\n"
+            "# AFTER:\n"
+            "try:\n"
+            "    return requests.get(url, timeout=5).json()\n"
+            "except requests.exceptions.RequestException as e:\n"
+            "    logger.error('Failed to fetch: %s', e)\n"
+            "    return None"
+        ),
+        "references": [
+            "https://requests.readthedocs.io/en/latest/user/quickstart/#errors-and-exceptions",
+            "https://cwe.mitre.org/data/definitions/755.html"
+        ]
+    },
+
+    "RISK-PY-003": {
+        "title": "Enclose Database Operations in Robust Error Handlers with Transaction Rollback",
+        "recommendation": (
+            "Ensure all database queries, updates, and transaction commits are wrapped in try-except blocks "
+            "catching database-specific errors (e.g. sqlite3.Error, psycopg2.Error). Ensure that on failure, "
+            "conn.rollback() is invoked to avoid hanging locks or corrupted transactional state."
+        ),
+        "corrected_code": (
+            "import sqlite3\n"
+            "import logging\n\n"
+            "def update_account_balance(conn: sqlite3.Connection, account_id: int, delta: float):\n"
+            "    try:\n"
+            "        cursor = conn.cursor()\n"
+            "        cursor.execute('UPDATE accounts SET balance = balance + ? WHERE id = ?', (delta, account_id))\n"
+            "        conn.commit()\n"
+            "        return True\n"
+            "    except sqlite3.Error as err:\n"
+            "        conn.rollback()\n"
+            "        logging.error(f'Database transaction failed: {err}')\n"
+            "        return False"
+        ),
+        "explanation": (
+            "If a database operation fails midway through an open transaction, unhandled exceptions "
+            "leave the transaction open or inconsistent, holding table/row locks and risking partial writes."
+        ),
+        "best_practices": [
+            "Always call rollback() in exception blocks during transaction handling",
+            "Use context managers: with conn: conn.execute(...) automatically commits or rolls back",
+            "Catch specific database exception hierarchies instead of broad Exception"
+        ],
+        "diff_example": (
+            "# BEFORE:\n"
+            "# cursor.execute(query, params)\n"
+            "# conn.commit()\n\n"
+            "# AFTER:\n"
+            "try:\n"
+            "    cursor.execute(query, params)\n"
+            "    conn.commit()\n"
+            "except sqlite3.Error:\n"
+            "    conn.rollback()\n"
+            "    raise"
+        ),
+        "references": [
+            "https://docs.python.org/3/library/sqlite3.html#using-the-connection-as-a-context-manager",
+            "https://cwe.mitre.org/data/definitions/755.html"
+        ]
+    },
+
+    "RISK-JV-001": {
+        "title": "Manage JDBC Connection and Statements within Try-with-Resources",
+        "recommendation": (
+            "Enclose JDBC Connection, PreparedStatement, and ResultSet instances within a try-with-resources statement. "
+            "Never create database connections as raw unmanaged local variables without guaranteed deterministic closure."
+        ),
+        "corrected_code": (
+            "import java.sql.Connection;\n"
+            "import java.sql.DriverManager;\n"
+            "import java.sql.PreparedStatement;\n"
+            "import java.sql.ResultSet;\n"
+            "import java.sql.SQLException;\n\n"
+            "public class DatabaseHelper {\n"
+            "    public void queryUserData(String url, String user, String pass, int userId) throws SQLException {\n"
+            "        String sql = \"SELECT id, username FROM users WHERE id = ?\";\n"
+            "        try (Connection conn = DriverManager.getConnection(url, user, pass);\n"
+            "             PreparedStatement pstmt = conn.prepareStatement(sql)) {\n"
+            "            pstmt.setInt(1, userId);\n"
+            "            try (ResultSet rs = pstmt.executeQuery()) {\n"
+            "                while (rs.next()) {\n"
+            "                    System.out.println(rs.getString(\"username\"));\n"
+            "                }\n"
+            "            }\n"
+            "        }\n"
+            "    }\n"
+            "}"
+        ),
+        "explanation": (
+            "Failing to close JDBC resources leads to database connection pool exhaustion (CWE-404 / CWE-775), "
+            "rendering the entire backend application incapable of serving subsequent user requests."
+        ),
+        "best_practices": [
+            "Use try-with-resources for all AutoCloseable JDBC objects",
+            "Nest ResultSets or chain them within the try resource specification",
+            "Use connection pooling libraries (HikariCP) in enterprise applications"
+        ],
+        "diff_example": (
+            "// BEFORE:\n"
+            "// Connection conn = DriverManager.getConnection(url);\n"
+            "// Statement stmt = conn.createStatement();\n\n"
+            "// AFTER:\n"
+            "try (Connection conn = DriverManager.getConnection(url);\n"
+            "     Statement stmt = conn.createStatement()) {\n"
+            "    // Safe execution\n"
+            "}"
+        ),
+        "references": [
+            "https://docs.oracle.com/javase/tutorial/essential/exceptions/tryResourceClose.html",
+            "https://cwe.mitre.org/data/definitions/404.html"
+        ]
+    },
+
+    "RISK-JV-002": {
+        "title": "Configure Connect and Read Timeouts on Java Network Connections",
+        "recommendation": (
+            "Always call setConnectTimeout(int ms) and setReadTimeout(int ms) on HttpURLConnection or Socket "
+            "instances before connecting. The default Java timeout is 0 (infinite wait), which will hang threads."
+        ),
+        "corrected_code": (
+            "import java.net.URL;\n"
+            "import java.net.HttpURLConnection;\n"
+            "import java.io.InputStream;\n\n"
+            "public class SafeHttpClient {\n"
+            "    public static InputStream fetchUrl(String endpoint) throws Exception {\n"
+            "        URL url = new URL(endpoint);\n"
+            "        HttpURLConnection conn = (HttpURLConnection) url.openConnection();\n"
+            "        // Enforce explicit network timeouts to prevent thread hanging:\n"
+            "        conn.setConnectTimeout(5000); // 5 seconds connect timeout\n"
+            "        conn.setReadTimeout(10000);   // 10 seconds read timeout\n"
+            "        conn.setRequestMethod(\"GET\");\n"
+            "        return conn.getInputStream();\n"
+            "    }\n"
+            "}"
+        ),
+        "explanation": (
+            "In Java, HttpURLConnection and Socket have default connection and read timeouts of 0 (infinite). "
+            "If an external peer server fails to acknowledge packets, the calling Java thread remains blocked "
+            "indefinitely, rapidly exhausting thread pools and causing full application denial of service (CWE-400)."
+        ),
+        "best_practices": [
+            "Always set both connectTimeout and readTimeout on every outbound connection",
+            "Use modern Java HTTP Client (java.net.http.HttpClient) with HttpRequest.Builder.timeout()",
+            "Catch SocketTimeoutException specifically to differentiate from connection refused"
+        ],
+        "diff_example": (
+            "// BEFORE:\n"
+            "// HttpURLConnection conn = (HttpURLConnection) url.openConnection();\n"
+            "// conn.connect();\n\n"
+            "// AFTER:\n"
+            "HttpURLConnection conn = (HttpURLConnection) url.openConnection();\n"
+            "conn.setConnectTimeout(5000);\n"
+            "conn.setReadTimeout(10000);\n"
+            "conn.connect();"
+        ),
+        "references": [
+            "https://docs.oracle.com/en/java/javase/17/docs/api/java.base/java/net/URLConnection.html#setConnectTimeout(int)",
+            "https://cwe.mitre.org/data/definitions/400.html"
+        ]
     }
 }
 

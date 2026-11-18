@@ -27,6 +27,7 @@ from agents.pr_summary_agent import get_pr_summary_agent
 from agents.conversational_agent import get_conversational_assistant
 from agents.orchestrator import get_orchestrator
 from reports.pdf_generator import generate_pdf_report
+from reports.sarif_generator import generate_sarif_report
 
 logger = logging.getLogger("smart_code_inspect")
 
@@ -228,16 +229,25 @@ def download_pdf(req: ReportPDFRequest):
     analysis_data = None
     lang = (req.language or "").strip().lower()
 
-    if req.source_code and lang in ("python", "java"):
-        if lang == "python":
-            analysis_data = analyze_python_source(req.source_code, filename=req.filename)
-        else:
-            analysis_data = analyze_java_source(req.source_code, filename=req.filename)
-
+    if req.analysis_data and isinstance(req.analysis_data, dict):
+        analysis_data = req.analysis_data
+        if req.ai_explanation and "ai_explanation" not in analysis_data:
+            analysis_data["ai_explanation"] = req.ai_explanation
+    elif req.source_code and lang in ("python", "java"):
+        try:
+            orchestrator = get_orchestrator()
+            analysis_data = orchestrator.run_parallel_analysis(
+                source_code=req.source_code,
+                language=lang,
+                filename=req.filename or "inspected_source"
+            )
+        except Exception:
+            if lang == "python":
+                analysis_data = analyze_python_source(req.source_code, filename=req.filename)
+            else:
+                analysis_data = analyze_java_source(req.source_code, filename=req.filename)
         if req.ai_explanation:
             analysis_data["ai_explanation"] = req.ai_explanation
-    elif req.analysis_data:
-        analysis_data = req.analysis_data
     else:
         raise HTTPException(status_code=400, detail="Missing valid analysis_data or source_code.")
 
@@ -254,6 +264,38 @@ def download_pdf(req: ReportPDFRequest):
         )
     except Exception as exc:
         raise HTTPException(status_code=500, detail=f"Failed to generate PDF report: {str(exc)}")
+
+
+@app.post("/api/reports/sarif")
+@app.post("/reports/sarif")
+def download_sarif(req: ReportPDFRequest):
+    """Generate OASIS SARIF v2.1.0 standard report for CI/CD and GitHub Code Scanning."""
+    analysis_data = None
+    lang = (req.language or "").strip().lower()
+
+    if req.analysis_data and isinstance(req.analysis_data, dict):
+        analysis_data = req.analysis_data
+    elif req.source_code and lang in ("python", "java"):
+        try:
+            orchestrator = get_orchestrator()
+            analysis_data = orchestrator.run_parallel_analysis(
+                source_code=req.source_code,
+                language=lang,
+                filename=req.filename or "inspected_source"
+            )
+        except Exception:
+            if lang == "python":
+                analysis_data = analyze_python_source(req.source_code, filename=req.filename)
+            else:
+                analysis_data = analyze_java_source(req.source_code, filename=req.filename)
+    else:
+        raise HTTPException(status_code=400, detail="Missing valid analysis_data or source_code.")
+
+    try:
+        sarif_json = generate_sarif_report(analysis_data, filename=req.filename)
+        return sarif_json
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=f"Failed to generate SARIF report: {str(exc)}")
 
 
 @app.post("/api/orchestrate")
