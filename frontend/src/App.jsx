@@ -916,20 +916,6 @@ export default function App() {
             onFixDiagnostic={handleFixDiagnostic}
           />
 
-          {/* 6-Dimensional Quality Radar: Before & After Comparison */}
-          <RadarChart
-            initialRadarScores={analysisResult?.initial_radar_scores || analysisResult?.summary?.radar_scores}
-            currentRadarScores={analysisResult?.summary?.radar_scores}
-            dimensionDetails={analysisResult?.summary?.dimension_details}
-            findings={analysisResult?.findings || []}
-            fixedFindingKeys={fixedFindingKeys}
-            fixedLinesMap={fixedLinesMap}
-            hasScanned={Boolean(analysisResult)}
-            isAnalyzing={isAnalyzing}
-            initialHealth={analysisResult?.initial_health_score ?? analysisResult?.baseHealthScore ?? 35}
-            currentHealth={analysisResult?.summary?.overall_code_health_score ?? 100}
-          />
-
           {/* 6-Dimensional Quality Radar Chart (Placed at bottom of Code Inspect Editor and above OWASP Knowledge Retrieval) */}
           <RadarChart
             findings={activeFindingsForRadar}
