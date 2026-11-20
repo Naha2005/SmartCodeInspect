@@ -46,6 +46,16 @@ def download_pdf_report():
             analysis_data["language"] = language
         if filename and "filename" not in analysis_data:
             analysis_data["filename"] = filename
+        if "original_source_code" in payload and "original_source_code" not in analysis_data:
+            analysis_data["original_source_code"] = payload["original_source_code"]
+        if "original_health_score" in payload and "original_health_score" not in analysis_data:
+            analysis_data["original_health_score"] = payload["original_health_score"]
+        if "original_findings" in payload and "original_findings" not in analysis_data:
+            analysis_data["original_findings"] = payload["original_findings"]
+        if "original_summary" in payload and "original_summary" not in analysis_data:
+            analysis_data["original_summary"] = payload["original_summary"]
+        if "original_pr_summary" in payload and "original_pr_summary" not in analysis_data:
+            analysis_data["original_pr_summary"] = payload["original_pr_summary"]
     elif source_code and language in ("python", "java"):
         try:
             try:

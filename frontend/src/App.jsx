@@ -44,6 +44,10 @@ export default function App() {
   const [fixedSyntaxDiagnosticKeys, setFixedSyntaxDiagnosticKeys] = useState(new Set());
   const [fixedSyntaxLinesMap, setFixedSyntaxLinesMap] = useState({});
 
+  // Milestone 4 Pristine Baseline Snapshot for PDF Audit Report Anchoring
+  const [originalSourceCode, setOriginalSourceCode] = useState('');
+  const [originalAnalysisResult, setOriginalAnalysisResult] = useState(null);
+
   const getFindingKey = (f) => `${f?.rule_id || 'RULE'}-${f?.line || 0}-${(f?.evidence || '').slice(0, 30)}`;
 
   const fetchHealth = async () => {
@@ -95,8 +99,8 @@ export default function App() {
     setFixedLinesMap({});
     setFixedSyntaxDiagnosticKeys(new Set());
     setFixedSyntaxLinesMap({});
-    setFixedSyntaxDiagnosticKeys(new Set());
-    setFixedSyntaxLinesMap({});
+    setOriginalAnalysisResult(null);
+    setOriginalSourceCode('');
     if (!preserveCode) {
       if (newLang === 'python') {
         const sample = SAMPLE_CODES.python_vulnerable;
@@ -177,6 +181,8 @@ export default function App() {
         data.summary.fixed_count = 0;
       }
       setAnalysisResult(data);
+      setOriginalAnalysisResult(JSON.parse(JSON.stringify(data)));
+      setOriginalSourceCode(code);
       setAnalysisError(null);
       setValidationResult({
         valid_syntax: data.valid_syntax,
@@ -194,6 +200,8 @@ export default function App() {
       }
     } catch (err) {
       setAnalysisResult(null);
+      setOriginalAnalysisResult(null);
+      setOriginalSourceCode('');
       setAnalysisError(err.message);
       showNotification(`Analysis failed: ${err.message}`, 'error');
     } finally {
@@ -201,13 +209,26 @@ export default function App() {
     }
   }, [language, sourceCode, filename]);
 
-  // Download PDF Report
+  // Download PDF Report — Anchored to Original Uploaded Code Baseline
   const handleDownloadPdf = async () => {
     setIsGeneratingPdf(true);
     try {
+      const targetAnalysisData = originalAnalysisResult
+        ? JSON.parse(JSON.stringify(originalAnalysisResult))
+        : (analysisResult ? JSON.parse(JSON.stringify(analysisResult)) : null);
+      const targetSourceCode = originalSourceCode || sourceCode;
+
+      if (targetAnalysisData) {
+        targetAnalysisData.original_source_code = targetSourceCode;
+        targetAnalysisData.original_health_score = originalAnalysisResult?.baseHealthScore || originalAnalysisResult?.summary?.overall_code_health_score || 35;
+        targetAnalysisData.original_findings = originalAnalysisResult?.findings || analysisResult?.findings || [];
+        targetAnalysisData.original_summary = originalAnalysisResult?.summary || analysisResult?.summary || {};
+        targetAnalysisData.original_pr_summary = originalAnalysisResult?.pr_summary || analysisResult?.pr_summary || {};
+      }
+
       await apiService.downloadPdfReport({
-        analysisData: analysisResult,
-        sourceCode,
+        analysisData: targetAnalysisData,
+        sourceCode: targetSourceCode,
         language,
         filename
       });

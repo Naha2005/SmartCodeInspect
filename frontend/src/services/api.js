@@ -143,6 +143,11 @@ export const apiService = {
       payload.filename = filename || analysisData.filename || 'inspected_source';
       if (sourceCode) payload.source_code = sourceCode;
       if (language) payload.language = language;
+      if (analysisData.original_source_code) payload.original_source_code = analysisData.original_source_code;
+      if (analysisData.original_health_score) payload.original_health_score = analysisData.original_health_score;
+      if (analysisData.original_findings) payload.original_findings = analysisData.original_findings;
+      if (analysisData.original_summary) payload.original_summary = analysisData.original_summary;
+      if (analysisData.original_pr_summary) payload.original_pr_summary = analysisData.original_pr_summary;
     } else if (sourceCode && language) {
       payload.source_code = sourceCode;
       payload.language = language;
@@ -187,6 +192,11 @@ export const apiService = {
       payload.filename = filename || analysisData.filename || 'inspected_source';
       if (sourceCode) payload.source_code = sourceCode;
       if (language) payload.language = language;
+      if (analysisData.original_source_code) payload.original_source_code = analysisData.original_source_code;
+      if (analysisData.original_health_score) payload.original_health_score = analysisData.original_health_score;
+      if (analysisData.original_findings) payload.original_findings = analysisData.original_findings;
+      if (analysisData.original_summary) payload.original_summary = analysisData.original_summary;
+      if (analysisData.original_pr_summary) payload.original_pr_summary = analysisData.original_pr_summary;
     } else if (sourceCode && language) {
       payload.source_code = sourceCode;
       payload.language = language;

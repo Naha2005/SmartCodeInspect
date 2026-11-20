@@ -209,16 +209,16 @@ def generate_pdf_report(analysis_data: Dict[str, Any]) -> io.BytesIO:
     elements: List[Any] = []
 
     # -------------------------------------------------------------
-    # 0. Data Ingestion & Automatic Enrichment
+    # 0. Data Ingestion & Automatic Enrichment (Anchored to Original Uploaded Code)
     # -------------------------------------------------------------
     filename = analysis_data.get("filename", "inspected_source")
     language = str(analysis_data.get("language", "python")).strip().lower()
-    source_code = analysis_data.get("source_code", "")
+    source_code = analysis_data.get("original_source_code") or analysis_data.get("source_code", "")
     now_str = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S UTC")
 
-    findings: List[Dict[str, Any]] = list(analysis_data.get("findings", []))
-    summary: Dict[str, Any] = dict(analysis_data.get("summary", {}))
-    pr_summary: Dict[str, Any] = dict(analysis_data.get("pr_summary", {}))
+    findings: List[Dict[str, Any]] = list(analysis_data.get("original_findings") or analysis_data.get("findings", []))
+    summary: Dict[str, Any] = dict(analysis_data.get("original_summary") or analysis_data.get("summary", {}))
+    pr_summary: Dict[str, Any] = dict(analysis_data.get("original_pr_summary") or analysis_data.get("pr_summary", {}))
 
     # Auto-enrich findings with RemediationAgent if missing or partial
     remediation_agent = get_remediation_agent()
@@ -232,19 +232,37 @@ def generate_pdf_report(analysis_data: Dict[str, Any]) -> io.BytesIO:
         enriched_findings.append(f_copy)
     findings = enriched_findings
 
-    # Auto-enrich summary with six-dimensional radar and severity breakdown if missing
-    if "six_dimensional_radar" not in summary:
-        summary["six_dimensional_radar"] = severity_engine.calculate_six_dimensional_radar(findings, summary=summary)
+    # Compute authentic baseline health score of the original uploaded file:
+    original_health = (
+        analysis_data.get("original_health_score")
+        or analysis_data.get("initial_health_score")
+        or analysis_data.get("baseHealthScore")
+        or summary.get("initial_health_score")
+        or summary.get("original_health_score")
+    )
+    if original_health is None or (int(original_health) >= 100 and len(findings) > 0):
+        original_health = severity_engine.calculate_health_score(findings)
+    else:
+        try:
+            original_health = int(original_health)
+        except (ValueError, TypeError):
+            original_health = severity_engine.calculate_health_score(findings)
 
-    if "score_breakdown" not in summary:
-        h_score = severity_engine.calculate_health_score(findings)
-        summary["overall_code_health_score"] = summary.get("overall_code_health_score", h_score)
-        explanation = severity_engine.get_score_explanation(findings)
-        summary["score_breakdown"] = {
-            "narrative": explanation.get("narrative_explanation", ""),
-            "itemized": explanation.get("itemized_deductions", []),
-            "duplicates_excluded": explanation.get("duplicates_excluded", 0)
-        }
+    health_score = original_health
+    summary["overall_code_health_score"] = health_score
+
+    # Auto-enrich summary with six-dimensional radar and severity breakdown for original code
+    original_radar = severity_engine.calculate_six_dimensional_radar(findings)
+    summary["six_dimensional_radar"] = original_radar
+    summary["radar_scores"] = original_radar["radar_scores"]
+    summary["dimension_details"] = original_radar["dimension_details"]
+
+    explanation = severity_engine.get_score_explanation(findings)
+    summary["score_breakdown"] = {
+        "narrative": explanation.get("narrative_explanation", ""),
+        "itemized": explanation.get("itemized_deductions", []),
+        "duplicates_excluded": explanation.get("duplicates_excluded", 0)
+    }
 
     # -------------------------------------------------------------
     # 1. HEADER & METADATA BANNER
@@ -303,13 +321,34 @@ def generate_pdf_report(analysis_data: Dict[str, Any]) -> io.BytesIO:
     # -------------------------------------------------------------
     # 2. OVERALL CODE QUALITY & SECURITY ASSESSMENT
     # -------------------------------------------------------------
+    crit = sum(1 for f in findings if str(f.get("severity", "")).lower() == "critical")
+    high = sum(1 for f in findings if str(f.get("severity", "")).lower() == "high")
+    med = sum(1 for f in findings if str(f.get("severity", "")).lower() == "medium")
+    low = sum(1 for f in findings if str(f.get("severity", "")).lower() in ("low", "info", "informational"))
+    sec_count = sum(1 for f in findings if f.get("category") == "Security" or "cwe" in str(f.get("id", "")).lower() or f.get("cwe_id"))
+    qual_count = max(0, len(findings) - sec_count)
+    total = len(findings)
+
     health_score = summary.get("overall_code_health_score", 85)
     quality_score = summary.get("code_quality_score", 80)
-    security_posture = summary.get("security_posture", "A (Clean)")
-
-    verdict_info = pr_summary.get("verdict", {})
-    verdict_label = verdict_info.get("label", "🟢 Approved" if health_score >= 85 else "🔴 Changes Requested")
-    verdict_reason = verdict_info.get("reason", "Automated code review and security audit completed.")
+    
+    # Anchor security posture and PR verdict directly to the original uploaded code findings
+    if crit > 0:
+        security_posture = f"Grade F ({crit} Critical Flaws)"
+        verdict_label = "🔴 Changes Requested (Merge Blocked)"
+        verdict_reason = f"Identified {crit} critical and {high} high risk security vulnerabilities requiring immediate remediation."
+    elif high > 0:
+        security_posture = f"Grade D ({high} High Risks)"
+        verdict_label = "🔴 Changes Requested (Review Needed)"
+        verdict_reason = f"Identified {high} high severity issues requiring code fixes before merge."
+    elif med > 0:
+        security_posture = "Grade B (Moderate Quality Flaws)"
+        verdict_label = "🟡 Approved with Suggestions"
+        verdict_reason = "No critical security risks detected; minor quality smells found."
+    else:
+        security_posture = summary.get("security_posture") or "Grade A (Clean & Compliant)"
+        verdict_label = "🟢 Approved for Merge"
+        verdict_reason = "Zero security vulnerabilities detected. Code passes inspection gate."
 
     elements.append(Paragraph("1. Overall Code Quality & Security Assessment", section_heading))
 
@@ -424,13 +463,15 @@ def generate_pdf_report(analysis_data: Dict[str, Any]) -> io.BytesIO:
     # -------------------------------------------------------------
     # 3. EXECUTIVE FINDINGS SUMMARY & SEVERITY BREAKDOWN
     # -------------------------------------------------------------
-    total = summary.get("total_findings", len(findings))
-    crit = summary.get("critical", 0)
-    high = summary.get("high", 0)
-    med = summary.get("medium", 0)
-    low = summary.get("low", 0) + summary.get("informational", 0)
-    sec_count = summary.get("security_findings_count", 0)
-    qual_count = summary.get("code_quality_findings_count", 0)
+    # Ensure counts stay faithful to original findings list even if summary was mutated
+    if total == 0 and len(findings) > 0:
+        total = len(findings)
+        crit = sum(1 for f in findings if str(f.get("severity", "")).lower() == "critical")
+        high = sum(1 for f in findings if str(f.get("severity", "")).lower() == "high")
+        med = sum(1 for f in findings if str(f.get("severity", "")).lower() == "medium")
+        low = sum(1 for f in findings if str(f.get("severity", "")).lower() in ("low", "info", "informational"))
+        sec_count = sum(1 for f in findings if f.get("category") == "Security" or "cwe" in str(f.get("id", "")).lower() or f.get("cwe_id"))
+        qual_count = max(0, len(findings) - sec_count)
 
     elements.append(Paragraph("2. Executive Findings Summary & Severity Breakdown", section_heading))
 
@@ -702,7 +743,7 @@ def generate_pdf_report(analysis_data: Dict[str, Any]) -> io.BytesIO:
             Paragraph("<b>Overall Code Health Score</b>", body_style),
             Paragraph(f"<font color='#EF4444'><b>{before_health}/100</b></font>", body_style),
             Paragraph(f"<font color='#10B981'><b>{after_health}/100</b></font>", body_style),
-            Paragraph(f"+{100 - before_health} pts (Target baseline reached)", body_style),
+            Paragraph(f"+{max(0, 100 - before_health)} pts (Target baseline reached)", body_style),
         ],
         [
             Paragraph("<b>Security Posture</b>", body_style),
