@@ -694,5 +694,88 @@ describe('AI Code Review, Remediation & Conversational Assistant Suite', () => {
     expect(screen.getByRole('button', { name: /Java \(javac\)/i })).toHaveClass('btn-primary');
     expect(screen.getByRole('button', { name: /Python \(AST\)/i })).toHaveClass('btn-secondary');
   });
+
+  it('allows user to switch between remediated code and original uploaded code with initial error highlights via dropdown', async () => {
+    const originalCode = 'def vulnerable():\n    eval(user_input)\n    return True';
+    const remediatedCode = 'import ast\ndef vulnerable():\n    ast.literal_eval(user_input)\n    return True';
+
+    const mockFinding = {
+      rule_id: 'SEC-PY-001',
+      title: 'eval() vulnerability',
+      line: 2,
+      severity: 'Critical',
+      evidence: 'eval(user_input)',
+      remediation: { corrected_code: 'ast.literal_eval(user_input)' }
+    };
+
+    const mockAnalysisResult = {
+      findings: [mockFinding],
+      summary: {
+        total_findings: 1,
+        active_errors_count: 0,
+        overall_code_health_score: 100
+      }
+    };
+
+    const originalAnalysisResult = {
+      findings: [mockFinding],
+      diagnostics: [],
+      summary: {
+        total_findings: 1,
+        active_errors_count: 1,
+        overall_code_health_score: 35
+      }
+    };
+
+    const fixedFindingKeys = new Set(['SEC-PY-001-2-eval(user_input)']);
+    const fixedLinesMap = { 2: true };
+
+    render(
+      <EditorPanel
+        language="python"
+        sourceCode={remediatedCode}
+        setSourceCode={vi.fn()}
+        filename="vulnerable.py"
+        setFilename={vi.fn()}
+        onLanguageChange={vi.fn()}
+        onValidate={vi.fn()}
+        onAnalyze={vi.fn()}
+        onDownloadPdf={vi.fn()}
+        isValidating={false}
+        isAnalyzing={false}
+        isGeneratingPdf={false}
+        analysisResult={mockAnalysisResult}
+        originalAnalysisResult={originalAnalysisResult}
+        originalSourceCode={originalCode}
+        fixedFindingKeys={fixedFindingKeys}
+        fixedLinesMap={fixedLinesMap}
+      />
+    );
+
+    // Initial state: Current / Remediated code is active (Clean / 100% Verified)
+    expect(screen.getByText(/0 Errors Remaining • 100% Clean Code Verified!/i)).toBeInTheDocument();
+    expect(screen.getAllByText(/ast\.literal_eval\(user_input\)/i).length).toBeGreaterThan(0);
+
+    // The Code Version dropdown should be present
+    const versionDropdown = screen.getByLabelText(/Code Version Selector/i);
+    expect(versionDropdown).toBeInTheDocument();
+    expect(versionDropdown.value).toBe('current');
+
+    // Switch to Original Uploaded Code
+    fireEvent.change(versionDropdown, { target: { value: 'original' } });
+
+    // Should now display original code and initial error highlight
+    expect(screen.getByText(/Viewing Original Code Baseline/i)).toBeInTheDocument();
+    expect(screen.getAllByText(/eval\(user_input\)/i).length).toBeGreaterThan(0);
+    expect(screen.getByText(/🔴 Vulnerable Line/i)).toBeInTheDocument();
+
+    // Switch back to Remediated Code via button or dropdown
+    const returnBtn = screen.getByRole('button', { name: /View Remediated Code/i });
+    fireEvent.click(returnBtn);
+
+    // Should be back to remediated state
+    expect(screen.getByText(/0 Errors Remaining • 100% Clean Code Verified!/i)).toBeInTheDocument();
+    expect(screen.getAllByText(/ast\.literal_eval\(user_input\)/i).length).toBeGreaterThan(0);
+  });
 });
 

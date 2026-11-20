@@ -26,7 +26,9 @@ export function EditorPanel({
   onDownloadCleanCode,
   fixedSyntaxDiagnosticKeys = new Set(),
   fixedSyntaxLinesMap = {},
-  onFixDiagnostic
+  onFixDiagnostic,
+  originalSourceCode = '',
+  originalAnalysisResult = null
 }) {
   const fileInputRef = useRef(null);
   const dragCounter = useRef(0);
@@ -35,6 +37,7 @@ export function EditorPanel({
   const [showUploadedContent, setShowUploadedContent] = useState(true);
   const [copiedContent, setCopiedContent] = useState(false);
   const [viewMode, setViewMode] = useState('inspector');
+  const [codeVersionView, setCodeVersionView] = useState('current'); // 'current' | 'original'
   const [copiedWholeCode, setCopiedWholeCode] = useState(false);
   const [selectedSampleKey, setSelectedSampleKey] = useState(
     language === 'python' ? 'python_vulnerable' : 'java_vulnerable'
@@ -54,6 +57,11 @@ export function EditorPanel({
       else setSelectedSampleKey('');
     }
   }, [language, sourceCode]);
+
+  // Reset code version view to current when switching language
+  useEffect(() => {
+    setCodeVersionView('current');
+  }, [language]);
 
   // Global window dragover/drop prevention to prevent browser navigating away on accidental outside drops
   useEffect(() => {
@@ -266,8 +274,12 @@ export function EditorPanel({
     }
   };
 
-  const linesCount = sourceCode.split('\n').length;
-  const charsCount = sourceCode.length;
+  const effectiveOriginalCode = originalSourceCode || sourceCode;
+  const isViewingOriginal = codeVersionView === 'original' && Boolean(effectiveOriginalCode);
+  const displayCode = isViewingOriginal ? effectiveOriginalCode : sourceCode;
+  const codeLines = displayCode.split('\n');
+  const linesCount = codeLines.length;
+  const charsCount = displayCode.length;
 
   const langBadge = language === 'python'
     ? { label: '🐍 Python', color: '#3b82f6' }
@@ -311,20 +323,20 @@ export function EditorPanel({
   const scanStatus = getUploadScanStatus();
 
   const handleCopyWholeCode = () => {
-    copyToClipboard(sourceCode);
+    copyToClipboard(displayCode);
     setCopiedWholeCode(true);
     setTimeout(() => setCopiedWholeCode(false), 2500);
   };
 
   const handleDownloadCode = () => {
-    if (onDownloadCleanCode) {
+    if (onDownloadCleanCode && !isViewingOriginal) {
       onDownloadCleanCode();
       return;
     }
     const cleanFilename = filename?.startsWith('clean_')
       ? filename
       : `clean_${filename || (language === 'python' ? 'script.py' : 'App.java')}`;
-    const blob = new Blob([sourceCode], { type: 'text/plain;charset=utf-8' });
+    const blob = new Blob([displayCode], { type: 'text/plain;charset=utf-8' });
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
     link.href = url;
@@ -335,7 +347,16 @@ export function EditorPanel({
     URL.revokeObjectURL(url);
   };
 
-  const codeLines = sourceCode.split('\n');
+  // Baseline original counts
+  const originalFindings = originalAnalysisResult?.findings || analysisResult?.findings || [];
+  const originalDiagnostics = originalAnalysisResult?.diagnostics || validationResult?.diagnostics || [];
+  const originalFindingsCount = originalFindings.length;
+  const originalSyntaxCount = originalDiagnostics.length;
+  const originalHealthScore = originalAnalysisResult?.summary?.overall_code_health_score ?? (
+    originalAnalysisResult?.baseHealthScore || 35
+  );
+
+  // Current working counts
   const totalFindingsCount = analysisResult?.findings?.length || 0;
   const activeErrorsCount = analysisResult?.summary?.active_errors_count ?? (
     analysisResult?.findings?.filter((f) => {
@@ -352,6 +373,7 @@ export function EditorPanel({
     return !fixedSyntaxDiagnosticKeys?.has(k) && !fixedSyntaxLinesMap?.[d.line];
   });
   const activeSyntaxCount = activeSyntaxDiags.length;
+  const fixedSyntaxCount = Math.max(0, allSyntaxDiags.length - activeSyntaxCount);
 
   const currentHealthScore = analysisResult?.summary?.overall_code_health_score ?? (
     (activeErrorsCount === 0 && activeSyntaxCount === 0 && (totalFindingsCount > 0 || allSyntaxDiags.length > 0))
@@ -359,7 +381,8 @@ export function EditorPanel({
       : (activeSyntaxCount > 0 ? 80 : (activeErrorsCount === 0 ? 100 : 85))
   );
 
-  const hasAnyInspectableLines = totalFindingsCount > 0 || allSyntaxDiags.length > 0;
+  const hasAnyInspectableLines = totalFindingsCount > 0 || allSyntaxDiags.length > 0 || originalFindingsCount > 0;
+  const hasModificationsOrFixes = fixedCount > 0 || fixedSyntaxCount > 0 || (effectiveOriginalCode && effectiveOriginalCode !== sourceCode);
 
   return (
     <div
@@ -654,8 +677,65 @@ export function EditorPanel({
         </span>
       </div>
 
-      {/* Dynamic Health Score & Error Line Banner (Milestone 3) */}
-      {hasAnyInspectableLines && (
+      {/* Dynamic Health Score & Error Line Banner (Milestone 3 & 4) */}
+      {hasAnyInspectableLines && isViewingOriginal && (
+        <div
+          id="editor-status-banner"
+          style={{
+            marginBottom: '12px',
+            padding: '10px 14px',
+            borderRadius: '8px',
+            background: 'rgba(239, 68, 68, 0.12)',
+            border: '1px solid rgba(239, 68, 68, 0.35)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            flexWrap: 'wrap',
+            gap: '10px'
+          }}
+        >
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+            <span style={{ fontSize: '1.25rem' }}>📜</span>
+            <div>
+              <div style={{ fontWeight: '700', fontSize: '0.88rem', color: '#f87171' }}>
+                Viewing Original Code Baseline • {originalFindingsCount} Vulnerability Line(s) in Red{originalSyntaxCount > 0 ? ` • ${originalSyntaxCount} Syntax Issue(s) in Yellow` : ''}
+              </div>
+              <div style={{ fontSize: '0.74rem', color: 'var(--text-muted)' }}>
+                Comparing initial flaws before fixes. Use the dropdown above or the button to the right to view the remediated code.
+              </div>
+            </div>
+          </div>
+
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <span
+              style={{
+                padding: '4px 10px',
+                borderRadius: '6px',
+                fontWeight: '800',
+                fontSize: '0.82rem',
+                fontFamily: 'var(--font-mono)',
+                background: 'rgba(239, 68, 68, 0.2)',
+                color: '#f87171',
+                border: '1px solid rgba(239, 68, 68, 0.4)'
+              }}
+            >
+              Baseline: {originalHealthScore}/100
+            </span>
+
+            <button
+              type="button"
+              className="btn btn-primary"
+              onClick={() => setCodeVersionView('current')}
+              style={{ padding: '4px 12px', fontSize: '0.78rem', background: '#10b981', borderColor: '#059669' }}
+              title="Switch to view current remediated code"
+            >
+              ⚡ View Remediated Code {fixedCount > 0 ? `(${fixedCount} Fixed)` : ''}
+            </button>
+          </div>
+        </div>
+      )}
+
+      {hasAnyInspectableLines && !isViewingOriginal && (
         <div
           id="editor-status-banner"
           style={{
@@ -725,6 +805,18 @@ export function EditorPanel({
               Score: {currentHealthScore}/100
             </span>
 
+            {hasModificationsOrFixes && (
+              <button
+                type="button"
+                className="btn btn-secondary"
+                onClick={() => setCodeVersionView('original')}
+                style={{ padding: '4px 10px', fontSize: '0.78rem', borderColor: '#ef4444', color: '#fca5a5' }}
+                title="View original uploaded code with initial error highlights"
+              >
+                📜 View Original Code
+              </button>
+            )}
+
             {(activeErrorsCount > 0 || activeSyntaxCount > 0) && onFixAll && (
               <button
                 type="button"
@@ -755,7 +847,7 @@ export function EditorPanel({
         }}
       >
         <div className="editor-header">
-          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
             <span>{filename}</span>
             {hasAnyInspectableLines && (
               <div style={{ display: 'flex', gap: '4px', marginLeft: '6px' }}>
@@ -793,6 +885,49 @@ export function EditorPanel({
                 </button>
               </div>
             )}
+
+            {/* Code Version Comparison Dropdown */}
+            {hasAnyInspectableLines && (
+              <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginLeft: '8px' }}>
+                <label
+                  htmlFor="code-version-dropdown"
+                  style={{
+                    fontSize: '0.72rem',
+                    color: '#94a3b8',
+                    fontWeight: '700',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '4px'
+                  }}
+                >
+                  <span>Code Version:</span>
+                </label>
+                <select
+                  id="code-version-dropdown"
+                  aria-label="Code Version Selector"
+                  value={codeVersionView}
+                  onChange={(e) => setCodeVersionView(e.target.value)}
+                  style={{
+                    background: isViewingOriginal ? 'rgba(239, 68, 68, 0.25)' : 'rgba(34, 197, 94, 0.18)',
+                    color: isViewingOriginal ? '#fca5a5' : '#86efac',
+                    border: isViewingOriginal ? '1px solid rgba(239, 68, 68, 0.55)' : '1px solid rgba(34, 197, 94, 0.45)',
+                    borderRadius: '4px',
+                    padding: '2px 8px',
+                    fontSize: '0.74rem',
+                    fontWeight: '700',
+                    cursor: 'pointer',
+                    outline: 'none'
+                  }}
+                >
+                  <option value="current" style={{ background: '#0f172a', color: '#e2e8f0' }}>
+                    ✨ Current / Remediated Code {fixedCount > 0 ? `(${fixedCount} Fixed • Clean)` : ''}
+                  </option>
+                  <option value="original" style={{ background: '#0f172a', color: '#e2e8f0' }}>
+                    📜 Original Uploaded Code ({originalFindingsCount} Initial Errors in Red)
+                  </option>
+                </select>
+              </div>
+            )}
           </div>
           <div style={{ display: 'flex', gap: '14px', alignItems: 'center' }}>
             <span>{linesCount} lines</span>
@@ -800,6 +935,48 @@ export function EditorPanel({
             <span>{language.toUpperCase()}</span>
           </div>
         </div>
+
+        {/* Original Code View Indicator Banner */}
+        {isViewingOriginal && (
+          <div
+            id="original-code-view-banner"
+            style={{
+              padding: '8px 14px',
+              background: 'rgba(239, 68, 68, 0.15)',
+              borderBottom: '1px solid rgba(239, 68, 68, 0.35)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              fontSize: '0.78rem',
+              color: '#fca5a5',
+              flexWrap: 'wrap',
+              gap: '8px'
+            }}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <span style={{ fontSize: '1rem' }}>📜</span>
+              <span>
+                <b>Viewing Original Uploaded Code:</b> Displaying initial flaws with all baseline error highlights (in Red &amp; Yellow) before fixes were applied.
+              </span>
+            </div>
+            <button
+              type="button"
+              onClick={() => setCodeVersionView('current')}
+              style={{
+                background: 'rgba(34, 197, 94, 0.25)',
+                border: '1px solid rgba(34, 197, 94, 0.5)',
+                color: '#86efac',
+                padding: '3px 10px',
+                borderRadius: '4px',
+                fontSize: '0.74rem',
+                fontWeight: '700',
+                cursor: 'pointer'
+              }}
+            >
+              ⚡ Return to Remediated Code
+            </button>
+          </div>
+        )}
 
         {/* Drag overlay */}
         {isDragging && (
@@ -835,25 +1012,46 @@ export function EditorPanel({
           <div className="code-inspector-container" id="code-line-inspector">
             {codeLines.map((lineText, idx) => {
               const lineNum = idx + 1;
-              const lineFindings = (analysisResult?.findings || []).filter((f) => f.line === lineNum);
-              const isFinding = lineFindings.length > 0;
-              const isFindingFixed = isFinding && (
-                fixedLinesMap?.[lineNum] ||
-                lineFindings.every((f) => {
-                  const key = `${f.rule_id || 'RULE'}-${f.line || 0}-${(f.evidence || '').slice(0, 30)}`;
-                  return fixedFindingKeys?.has(key);
-                })
-              );
-              const isActiveFinding = isFinding && !isFindingFixed;
 
-              // Check syntax diagnostics for this line
-              const lineSyntaxDiags = allSyntaxDiags.filter((d) => d.line === lineNum);
-              const isSyntax = lineSyntaxDiags.length > 0;
-              const isSyntaxFixed = isSyntax && (
-                fixedSyntaxLinesMap?.[lineNum] ||
-                lineSyntaxDiags.every((d) => fixedSyntaxDiagnosticKeys?.has(`syntax-${d.line}-${d.message}`))
-              );
-              const isActiveSyntax = isSyntax && !isSyntaxFixed;
+              let lineFindings;
+              let isFinding;
+              let isFindingFixed;
+              let isActiveFinding;
+              let lineSyntaxDiags;
+              let isSyntax;
+              let isSyntaxFixed;
+              let isActiveSyntax;
+
+              if (isViewingOriginal) {
+                lineFindings = originalFindings.filter((f) => f.line === lineNum);
+                isFinding = lineFindings.length > 0;
+                isFindingFixed = false;
+                isActiveFinding = isFinding;
+
+                lineSyntaxDiags = originalDiagnostics.filter((d) => d.line === lineNum);
+                isSyntax = lineSyntaxDiags.length > 0;
+                isSyntaxFixed = false;
+                isActiveSyntax = isSyntax;
+              } else {
+                lineFindings = (analysisResult?.findings || []).filter((f) => f.line === lineNum);
+                isFinding = lineFindings.length > 0;
+                isFindingFixed = isFinding && (
+                  fixedLinesMap?.[lineNum] ||
+                  lineFindings.every((f) => {
+                    const key = `${f.rule_id || 'RULE'}-${f.line || 0}-${(f.evidence || '').slice(0, 30)}`;
+                    return fixedFindingKeys?.has(key);
+                  })
+                );
+                isActiveFinding = isFinding && !isFindingFixed;
+
+                lineSyntaxDiags = allSyntaxDiags.filter((d) => d.line === lineNum);
+                isSyntax = lineSyntaxDiags.length > 0;
+                isSyntaxFixed = isSyntax && (
+                  fixedSyntaxLinesMap?.[lineNum] ||
+                  lineSyntaxDiags.every((d) => fixedSyntaxDiagnosticKeys?.has(`syntax-${d.line}-${d.message}`))
+                );
+                isActiveSyntax = isSyntax && !isSyntaxFixed;
+              }
 
               let rowClass = 'code-line-row';
               let gutterSymbol = '';
@@ -889,7 +1087,12 @@ export function EditorPanel({
                           <button
                             type="button"
                             className="btn-fix-inline"
-                            onClick={() => onApplyFix(lineFindings[0], lineFindings[0]?.remediation?.corrected_code)}
+                            onClick={() => {
+                              if (isViewingOriginal) {
+                                setCodeVersionView('current');
+                              }
+                              onApplyFix(lineFindings[0], lineFindings[0]?.remediation?.corrected_code);
+                            }}
                             title="Apply recommended fix to this line"
                           >
                             ⚡ Fix Line
@@ -908,7 +1111,12 @@ export function EditorPanel({
                           <button
                             type="button"
                             className="btn-fix-syntax-inline"
-                            onClick={() => onFixDiagnostic(lineSyntaxDiags[0])}
+                            onClick={() => {
+                              if (isViewingOriginal) {
+                                setCodeVersionView('current');
+                              }
+                              onFixDiagnostic(lineSyntaxDiags[0]);
+                            }}
                             title="Apply fix for this syntax/compiler issue"
                           >
                             ⚡ Fix Syntax
@@ -940,14 +1148,16 @@ export function EditorPanel({
         <textarea
           id="code-editor-textarea"
           className="code-textarea"
-          value={sourceCode}
-          onChange={handleTextareaChange}
+          value={displayCode}
+          onChange={isViewingOriginal ? undefined : handleTextareaChange}
+          readOnly={isViewingOriginal}
           onDragOver={handleDragOver}
           onDrop={handleDrop}
-          placeholder="Paste or write your Python / Java code here, or drag-and-drop a .py / .java file onto this editor…"
+          placeholder={isViewingOriginal ? 'Original uploaded code (Read-Only comparison)...' : 'Paste or write your Python / Java code here, or drag-and-drop a .py / .java file onto this editor…'}
           spellCheck="false"
           style={{
-            display: viewMode === 'inspector' && hasAnyInspectableLines ? 'none' : 'block'
+            display: viewMode === 'inspector' && hasAnyInspectableLines ? 'none' : 'block',
+            cursor: isViewingOriginal ? 'default' : 'text'
           }}
         />
       </div>

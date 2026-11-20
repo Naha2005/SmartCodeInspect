@@ -935,6 +935,8 @@ export default function App() {
             fixedSyntaxDiagnosticKeys={fixedSyntaxDiagnosticKeys}
             fixedSyntaxLinesMap={fixedSyntaxLinesMap}
             onFixDiagnostic={handleFixDiagnostic}
+            originalSourceCode={originalSourceCode}
+            originalAnalysisResult={originalAnalysisResult}
           />
 
           {/* 6-Dimensional Quality Radar Chart (Placed at bottom of Code Inspect Editor and above OWASP Knowledge Retrieval) */}

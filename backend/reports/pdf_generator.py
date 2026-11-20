@@ -20,9 +20,13 @@ import sys
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
+# pyrefly: ignore[untyped-import]
 from reportlab.lib import colors
+# pyrefly: ignore[untyped-import]
 from reportlab.lib.pagesizes import letter
+# pyrefly: ignore[untyped-import]
 from reportlab.lib.styles import ParagraphStyle, getSampleStyleSheet
+# pyrefly: ignore[untyped-import]
 from reportlab.platypus import (
     HRFlowable,
     KeepTogether,
